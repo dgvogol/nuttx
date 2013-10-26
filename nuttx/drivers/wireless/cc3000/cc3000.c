@@ -71,9 +71,10 @@
 
 #include <nuttx/wireless/wireless.h>
 #include <nuttx/wireless/cc3000.h>
-#include <nuttx/wireless/cc3000/include/cc3000_upif.h> // For Lowevel SPI config
+#include <nuttx/wireless/cc3000/include/cc3000_upif.h>
 #include <nuttx/wireless/cc3000/cc3000_common.h>
 #include <nuttx/wireless/cc3000/hci.h>
+#include "cc3000_socket.h"
 #include "cc3000.h"
 
 
@@ -89,6 +90,8 @@
 #  define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 #endif
 #define NUMBER_OF_MSGS 2
+
+#define FREE_SLOT -1
 
 /****************************************************************************
  * Private Types
@@ -131,11 +134,11 @@ static const struct file_operations cc3000_fops =
   cc3000_open,      /* open */
   cc3000_close,     /* close */
   cc3000_read,      /* read */
-  cc3000_write,      /* write */
+  cc3000_write,     /* write */
   0,                /* seek */
-  cc3000_ioctl,    /* ioctl */
+  cc3000_ioctl,     /* ioctl */
 #ifndef CONFIG_DISABLE_POLL
-  cc3000_poll      /* poll */
+  cc3000_poll       /* poll */
 #endif
 };
 
@@ -223,6 +226,7 @@ static void usdelay(long ustimeout)
  * Assumptions:
  *
  ****************************************************************************/
+
 static inline void cc3000_configspi(FAR struct spi_dev_s *spi)
 {
   idbg("Mode: %d Bits: 8 Frequency: %d\n",
@@ -394,6 +398,7 @@ static inline int cc3000_wait_irq(FAR struct cc3000_dev_s *priv)
  *   Own the devsem on entry
  *
  ****************************************************************************/
+
 static inline int cc3000_wait_ready(FAR struct cc3000_dev_s *priv)
 {
     return cc3000_wait(priv,&priv->readysem);
@@ -446,6 +451,96 @@ static void cc3000_notify(FAR struct cc3000_dev_s *priv)
  * Name: cc3000_worker
  ****************************************************************************/
 
+static void * select_thread_func(FAR void *arg)
+{
+  FAR struct cc3000_dev_s *priv = (FAR struct cc3000_dev_s *)arg;
+  struct timeval timeout;
+  TICC3000fd_set readsds;
+  int ret = 0;
+  int maxFD = 0;
+  int s = 0;
+
+  memset(&timeout, 0, sizeof(struct timeval));
+  timeout.tv_sec = 0;
+  timeout.tv_usec = (500 * 1000);          /* 500 msecs */
+
+  while (1)
+    {
+      sem_wait(&priv->selectsem);
+
+      /* Increase the count back by one to be decreased by the original caller */
+
+      sem_post(&priv->selectsem);
+
+      CC3000_FD_ZERO(&readsds);
+
+      /* Ping correct socket descriptor param for select */
+
+      for (s = 0; s < CONFIG_WL_MAX_SOCKETS; s++)
+        {
+          if (priv->sockets[s].sd != FREE_SLOT)
+            {
+              CC3000_FD_SET(priv->sockets[s].sd, &readsds);
+              if (maxFD <= priv->sockets[s].sd)
+                {
+                  maxFD = priv->sockets[s].sd + 1;
+                }
+            }
+        }
+
+      /* Polling instead of blocking here to process "accept" below */
+
+      ret = cc3000_select(maxFD, (fd_set *) &readsds, NULL, NULL, &timeout);
+      if (priv->selecttid == -1)
+        {
+          /* driver close will terminate the thread and by that all sync
+           * objects owned by it will be released
+           */
+
+          return OK;
+        }
+
+      if (ret > 0)
+        {
+          for (s = 0; s < CONFIG_WL_MAX_SOCKETS; s++)
+            {
+              if (priv->sockets[s].sd != FREE_SLOT &&                        /* Check that the socket is valid */
+                  priv->sockets[s].sd  != priv->accepting_socket.acc.sd  &&  /* Verify this is not an accept socket */
+                  C3000_FD_ISSET(priv->sockets[s].sd, &readsds))             /* and has pending data */
+                {
+                  sem_post(&priv->sockets[s].semwait);                       /* release the semaphore */
+                }
+            }
+        }
+
+      if (priv->accepting_socket.acc.sd != FREE_SLOT)                        /* if accept polling in needed */
+        {
+          ret = cc3000_do_accept(priv->accepting_socket.acc.sd,
+                                &priv->accepting_socket.addr,
+                                &priv->accepting_socket.addrlen);
+          if (ret != CC3000_SOC_IN_PROGRESS)
+            {
+              priv->accepting_socket.acc.sd = FREE_SLOT;
+              priv->accepting_socket.acc.status = ret;
+              if (ret != CC3000_SOC_ERROR)
+                {
+                  /* New Socket */
+
+                  cc3000_add_socket(ret,priv->minor);
+                }
+
+              sem_post(&priv->accepting_socket.acc.semwait);                 /* release the semaphore */
+            }
+        }
+    }
+
+  return OK;
+}
+
+/****************************************************************************
+ * Name: cc3000_worker
+ ****************************************************************************/
+
 static void * cc3000_worker(FAR void *arg)
 {
   FAR struct cc3000_dev_s    *priv = (FAR struct cc3000_dev_s *)arg;
@@ -466,12 +561,14 @@ static void * cc3000_worker(FAR void *arg)
   sem_post(&priv->readysem);
   while(1)
     {
+      priv->config->probe(config,0, 1);
       cc3000_devtake(priv);
 
       /* Done ? */
 
       if ((cc3000_wait_irq(priv) != -EINTR) && (priv->workertid != -1))
         {
+          priv->config->probe(config,0, 0);
           nllvdbg("State%d\n",priv->state);
           switch (priv->state)
             {
@@ -529,6 +626,8 @@ static void * cc3000_worker(FAR void *arg)
 
                 if (data_to_recv)
                   {
+                    int count;
+
                     priv->state = eSPI_STATE_READ_READY;
                     priv->rx_buffer_len = data_to_recv;
 
@@ -543,8 +642,15 @@ static void * cc3000_worker(FAR void *arg)
 
                     cc3000_devgive(priv);
                     nllvdbg("Wait On Completion\n");
-                    sem_wait(&priv->wrkwaitsem);
-                    nllvdbg("Completed S:%d\n",priv->state);
+                    sem_wait(priv->wrkwaitsem);
+                    nllvdbg("Completed S:%d irq :%d\n",priv->state,priv->config->irq_read(priv->config));
+
+                    sem_getvalue(&priv->irqsem, &count);
+                    if (priv->config->irq_read(priv->config) && count==0)
+                      {
+                        sem_post(&priv->irqsem);
+                      }
+
                     if (priv->state == eSPI_STATE_READ_READY)
                       {
                          priv->state = eSPI_STATE_IDLE;
@@ -561,8 +667,10 @@ static void * cc3000_worker(FAR void *arg)
             } /* end switch */
         } /* end if */
 
-     cc3000_devgive(priv);
-   } /* while(1) */
+      cc3000_devgive(priv);
+    } /* while(1) */
+
+  return OK;
 }
 
 /****************************************************************************
@@ -587,7 +695,9 @@ static int cc3000_interrupt(int irq, FAR void *context)
 
   /* Run the worker thread */
 
+  priv->config->probe(priv->config,1, 0);
   sem_post(&priv->irqsem);
+  priv->config->probe(priv->config,1, 1);
 
   /* Clear any pending interrupts and return success */
 
@@ -610,13 +720,13 @@ static int cc3000_open(FAR struct file *filep)
   uint8_t tmp;
   int ret;
 
-  nllvdbg("Opening\n");
-
   DEBUGASSERT(filep);
   inode = filep->f_inode;
 
   DEBUGASSERT(inode && inode->i_private);
   priv = (FAR struct cc3000_dev_s *)inode->i_private;
+
+  nllvdbg("crefs: %d\n", priv->crefs);
 
   /* Get exclusive access to the driver data structure */
 
@@ -674,9 +784,28 @@ static int cc3000_open(FAR struct file *filep)
       pthread_attr_init(&tattr);
       param.sched_priority = SCHED_PRIORITY_MAX;
       pthread_attr_setschedparam(&tattr, &param);
-      ret = pthread_create(&priv->workertid, &tattr, cc3000_worker, (pthread_addr_t)priv);
+
+      ret = pthread_create(&priv->workertid, &tattr, cc3000_worker,
+                           (pthread_addr_t)priv);
       if (ret < 0)
         {
+          mq_close(priv->queue);
+          priv->queue = 0;
+          ret = -errno;
+          goto errout_with_sem;
+        }
+
+      pthread_attr_init(&tattr);
+      param.sched_priority = SCHED_PRIORITY_DEFAULT+10;
+      pthread_attr_setschedparam(&tattr, &param);
+      ret = pthread_create(&priv->selecttid, &tattr, select_thread_func,
+                           (pthread_addr_t)priv);
+      if (ret < 0)
+        {
+          pthread_t workertid = priv->workertid;
+          priv->workertid = -1;
+          pthread_cancel(workertid);
+          pthread_join(workertid,NULL);
           mq_close(priv->queue);
           priv->queue = 0;
           ret = -errno;
@@ -715,12 +844,13 @@ static int cc3000_close(FAR struct file *filep)
   FAR struct cc3000_dev_s *priv;
   int                       ret;
 
-  nllvdbg("Closing\n");
   DEBUGASSERT(filep);
   inode = filep->f_inode;
 
   DEBUGASSERT(inode && inode->i_private);
-  priv  = (FAR struct cc3000_dev_s *)inode->i_private;
+  priv = (FAR struct cc3000_dev_s *)inode->i_private;
+
+  nllvdbg("crefs: %d\n", priv->crefs);
 
   /* Get exclusive access to the driver data structure */
 
@@ -743,13 +873,20 @@ static int cc3000_close(FAR struct file *filep)
 
   if (tmp == 1)
     {
+      pthread_t id = priv->selecttid;
+      priv->selecttid = -1;
+      pthread_cancel(id);
+      pthread_join(id, NULL);
+
       priv->config->irq_enable(priv->config, false);
       priv->config->irq_clear(priv->config);
       priv->config->power_enable(priv->config, false);
-      pthread_t workertid = priv->workertid;
-      priv->workertid= -1;
-      pthread_cancel(workertid);
-      pthread_join(workertid,NULL);
+
+      id = priv->workertid;
+      priv->workertid = -1;
+      pthread_cancel(id);
+      pthread_join(id, NULL);
+
       mq_close(priv->queue);
       priv->queue = 0;
     }
@@ -761,6 +898,7 @@ static int cc3000_close(FAR struct file *filep)
 /****************************************************************************
  * Name: cc3000_read
  ****************************************************************************/
+
 static ssize_t cc3000_read(FAR struct file *filep, FAR char *buffer, size_t len)
 {
   FAR struct inode *inode;
@@ -899,19 +1037,21 @@ errout_without_sem:
  * Name:cc3000_write
  *
  * Bit of non standard buffer management ahead
- * The buffer is memory allocated in the user space with space for the spi header
+ * The buffer is memory allocated in the user space with space for the spi
+ * header
+ *
  ****************************************************************************/
 
 static ssize_t cc3000_write(FAR struct file *filep, FAR const char *buffer, size_t len)
 {
-  FAR struct inode          *inode;
-  FAR struct cc3000_dev_s   *priv;
-  int                       ret;
-  ssize_t          nwritten = 0;
+  FAR struct inode *inode;
+  FAR struct cc3000_dev_s *priv;
+  int ret;
+  ssize_t nwritten = 0;
 
   /* Set the padding if count(buffer) is even ( as it will be come odd with header) */
 
-  size_t          tx_len = (len & 1) ? len : len +1;
+  size_t tx_len = (len & 1) ? len : len +1;
 
   nllvdbg("buffer:%p len:%d tx_len:%d\n", buffer, len, tx_len );
 
@@ -944,19 +1084,26 @@ static ssize_t cc3000_write(FAR struct file *filep, FAR const char *buffer, size
 
   tx_len += SPI_HEADER_SIZE;
 
-  /*  The first write transaction to occur after release of the shutdown has slightly different timing than the others.
-   *  The normal Master SPI write sequence is nCS low, followed by IRQ low (CC3000 host), indicating that
-   *  the CC3000 core device is ready to accept data. However, after power up the sequence is slightly different,
-   *  as shown in the following Figure: http://processors.wiki.ti.com/index.php/File:CC3000_Master_SPI_Write_Sequence_After_Power_Up.png
-   *  The following is a sequence of operations:
-   *  The master detects the IRQ line low: in this case the detection of
-   *  IRQ low does not indicate the intention of the CC3000 device to communicate with the
-   *  master but rather CC3000 readiness after power up.
-   *  The master asserts nCS.
-   *  The master introduces a delay of at least 50 μs before starting actual transmission of data.
-   *  The master transmits the first 4 bytes of the SPI header.
-   *  The master introduces a delay of at least an additional 50 μs.
-   *  The master transmits the rest of the packet.
+  /* The first write transaction to occur after release of the shutdown has
+   * slightly different timing than the others.  The normal Master SPI
+   * write sequence is nCS low, followed by IRQ low (CC3000 host),
+   * indicating that the CC3000 core device is ready to accept data.
+   * However, after power up the sequence is slightly different, as shown
+   * in the following Figure:
+   *
+   *   http://processors.wiki.ti.com/index.php/File:CC3000_Master_SPI_Write_Sequence_After_Power_Up.png
+   *
+   * The following is a sequence of operations:
+   *  - The master detects the IRQ line low: in this case the detection of
+   *    IRQ low does not indicate the intention of the CC3000 device to
+   *    communicate with the master but rather CC3000 readiness after power
+   *    up.
+   *  - The master asserts nCS.
+   *  - The master introduces a delay of at least 50 μs before starting
+   *    actual transmission of data.
+   *  - The master transmits the first 4 bytes of the SPI header.
+   *  - The master introduces a delay of at least an additional 50 μs.
+   *  - The master transmits the rest of the packet.
    */
 
   if (priv->state == eSPI_STATE_POWERUP)
@@ -971,7 +1118,7 @@ static ssize_t cc3000_write(FAR struct file *filep, FAR const char *buffer, size
 
   if (priv->state  == eSPI_STATE_INITIALIZED)
     {
-      cc3000_lock_and_select(priv->spi); // Assert CS
+      cc3000_lock_and_select(priv->spi); /* Assert CS */
       usdelay(55);
       SPI_SNDBLOCK(priv->spi, priv->tx_buffer, 4);
       usdelay(55);
@@ -981,7 +1128,7 @@ static ssize_t cc3000_write(FAR struct file *filep, FAR const char *buffer, size
     {
       nllvdbg("Assert CS\n");
       priv->state  = eSPI_STATE_WRITE_WAIT_IRQ;
-      cc3000_lock_and_select(priv->spi); // Assert CS
+      cc3000_lock_and_select(priv->spi); /* Assert CS */
       nllvdbg("Wait on IRQ Active\n");
       ret = cc3000_wait_ready(priv);
       nllvdbg("IRQ Signaled\n");
@@ -1025,7 +1172,7 @@ static int cc3000_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
   inode = filep->f_inode;
 
   DEBUGASSERT(inode && inode->i_private);
-  priv  = (FAR struct cc3000_dev_s *)inode->i_private;
+  priv = (FAR struct cc3000_dev_s *)inode->i_private;
 
   /* Get exclusive access to the driver data structure */
 
@@ -1038,17 +1185,11 @@ static int cc3000_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
     }
 
   /* Process the IOCTL by command */
+
   ret = OK;
   switch (cmd)
     {
-      case CC3000IOC_COMPLETE:  /* arg: Pointer to uint32_t frequency value */
-        {
-          DEBUGASSERT(priv->config);
-          sem_post(&priv->wrkwaitsem);
-        }
-        break;
-
-      case CC3000IOC_GETQUEID:
+      case CC3000IOC_GETQUESEMID:
         {
           FAR int *pid = (FAR int *)(arg);
           DEBUGASSERT(pid != NULL);
@@ -1161,10 +1302,6 @@ errout:
  ****************************************************************************/
 
 /****************************************************************************
- * Public Functions
- ****************************************************************************/
-
-/****************************************************************************
  * Name: cc3000_register
  *
  * Description:
@@ -1187,7 +1324,11 @@ int cc3000_register(FAR struct spi_dev_s *spi,
                       FAR struct cc3000_config_s *config, int minor)
 {
   FAR struct cc3000_dev_s *priv;
-  char devname[DEV_NAMELEN];
+  char drvname[DEV_NAMELEN];
+  char semname[SEM_NAMELEN];
+#ifdef CONFIG_CC3000_MT
+  int s;
+#endif
 
 #ifdef CONFIG_CC3000_MULTIPLE
   irqstate_t flags;
@@ -1225,7 +1366,20 @@ int cc3000_register(FAR struct spi_dev_s *spi,
   sem_init(&priv->waitsem, 0, 0);    /* Initialize  event wait semaphore */
   sem_init(&priv->irqsem, 0, 0);     /* Initialize  IRQ Ready semaphore */
   sem_init(&priv->readysem, 0, 0);   /* Initialize  Device Ready semaphore */
-  sem_init(&priv->wrkwaitsem, 0, 0); /* Initialize  Worker Wait semaphore */
+
+  (void)snprintf(semname, SEM_NAMELEN, SEM_FORMAT, minor);
+  priv->wrkwaitsem = sem_open(semname,O_CREAT,0,0); /* Initialize  Worker Wait semaphore */
+
+#ifdef CONFIG_CC3000_MT
+  pthread_mutex_init(&g_cc3000_mut, NULL);
+  priv->accepting_socket.acc.sd = FREE_SLOT;
+  sem_init(&priv->accepting_socket.acc.semwait, 0, 0);
+  for (s = 0; s < CONFIG_WL_MAX_SOCKETS; s++)
+    {
+      priv->sockets[s].sd = FREE_SLOT;
+      sem_init(&priv->sockets[s].semwait, 0, 0);
+    }
+#endif
 
   /* Make sure that interrupts are disabled */
 
@@ -1243,10 +1397,10 @@ int cc3000_register(FAR struct spi_dev_s *spi,
 
   /* Register the device as an input device */
 
-  (void)snprintf(devname, DEV_NAMELEN, DEV_FORMAT, minor);
-  nllvdbg("Registering %s\n", devname);
+  (void)snprintf(drvname, DEV_NAMELEN, DEV_FORMAT, minor);
+  nllvdbg("Registering %s\n", drvname);
 
-  ret = register_driver(devname, &cc3000_fops, 0666, priv);
+  ret = register_driver(drvname, &cc3000_fops, 0666, priv);
   if (ret < 0)
     {
       idbg("register_driver() failed: %d\n", ret);
@@ -1270,8 +1424,220 @@ int cc3000_register(FAR struct spi_dev_s *spi,
 
 errout_with_priv:
   sem_destroy(&priv->devsem);
+  sem_destroy(&priv->waitsem);
+  sem_destroy(&priv->irqsem);
+  sem_destroy(&priv->readysem);
+  sem_close(priv->wrkwaitsem);
+  sem_unlink(semname);
+#ifdef CONFIG_CC3000_MT
+  pthread_mutex_destroy(&g_cc3000_mut);
+  sem_destroy(&priv->accepting_socket.acc.semwait);
+  for (s = 0; s < CONFIG_WL_MAX_SOCKETS; s++)
+    {
+      sem_destroy(&priv->sockets[s].semwait);
+    }
+#endif
+
 #ifdef CONFIG_CC3000_MULTIPLE
   kfree(priv);
 #endif
   return ret;
+}
+
+/****************************************************************************
+ * Name: cc3000_accept_socket
+ *
+ * Description:
+ *   Adds this socket for monitoring for the accept operation
+ *
+ * Input Parameters:
+ *   sd      cc3000 socket handle or -1 tp remove it
+ *   minor   - The input device minor number
+ *
+ * Returned Value:
+ *   Zero is returned on success.  Otherwise, a -1 value is
+ *   returned to indicate socket not found.
+ *
+ ****************************************************************************/
+
+int cc3000_wait_data(int sockfd, int minor)
+{
+  FAR struct cc3000_dev_s    *priv;
+ int s;
+
+#ifndef CONFIG_CC3000_MULTIPLE
+  priv = &g_cc3000;
+#else
+  for (priv = g_cc3000list;
+       priv && priv->minor != minor;
+       priv = priv->flink);
+
+  ASSERT(priv != NULL);
+#endif
+
+  for (s = 0; s < CONFIG_WL_MAX_SOCKETS; s++)
+    {
+      if (priv->sockets[s].sd == sockfd)
+        {
+          sem_post(&priv->selectsem);           /* Wake select thread if need be */
+          sem_wait(&priv->sockets[s].semwait);  /* Wait caller on select to finish */
+          sem_wait(&priv->selectsem);           /* Sleep select thread */
+          break;
+        }
+    }
+
+  return (s >= CONFIG_WL_MAX_SOCKETS || priv->selecttid == -1) ? -1 : OK;
+}
+
+/****************************************************************************
+ * Name: cc3000_accept_socket
+ *
+ * Description:
+ *   Adds this socket for monitoring for the accept operation
+ *
+ * Input Parameters:
+ *   sd      cc3000 socket handle or -1 tp remove it
+ *   minor   - The input device minor number
+ *
+ * Returned Value:
+ *   Zero is returned on success.  Otherwise, a -1 value is
+ *   returned to indicate socket not found.
+ *
+ ****************************************************************************/
+
+int cc3000_accept_socket(int sd, int minor, struct sockaddr *addr,
+                         socklen_t *addrlen)
+{
+  FAR struct cc3000_dev_s *priv;
+
+#ifndef CONFIG_CC3000_MULTIPLE
+  priv = &g_cc3000;
+#else
+  for (priv = g_cc3000list;
+       priv && priv->minor != minor;
+       priv = priv->flink);
+
+  ASSERT(priv != NULL);
+#endif
+
+  priv->accepting_socket.acc.status = CC3000_SOC_ERROR;
+  priv->accepting_socket.acc.sd = sd;
+  sem_post(&priv->selectsem);                    /* Wake select thread if need be */
+  sem_wait(&priv->accepting_socket.acc.semwait); /* Wait caller on select to finish */
+  sem_wait(&priv->selectsem);                    /* Sleep select thread */
+  if (priv->accepting_socket.acc.status != CC3000_SOC_ERROR)
+    {
+      *addr = priv->accepting_socket.addr;
+      *addrlen = priv->accepting_socket.addrlen;
+    }
+
+  return priv->accepting_socket.acc.status;
+}
+
+/****************************************************************************
+ * Name: cc3000_add_socket
+ *
+ * Description:
+ *   Adds a socket to the list for monitoring for long operation
+ *
+ * Input Parameters:
+ *   sd      cc3000 socket handle
+ *   minor   - The input device minor number
+ *
+ * Returned Value:
+ *   Zero is returned on success.  Otherwise, a -1 value is
+ *   returned to indicate socket not found.
+ *
+ ****************************************************************************/
+
+int cc3000_add_socket(int sd, int minor)
+{
+  FAR struct cc3000_dev_s *priv;
+  irqstate_t flags;
+  int s;
+
+  if (sd < 0)
+    {
+      return sd;
+    }
+
+#ifndef CONFIG_CC3000_MULTIPLE
+  priv = &g_cc3000;
+#else
+  for (priv = g_cc3000list;
+       priv && priv->minor != minor;
+       priv = priv->flink);
+
+  ASSERT(priv != NULL);
+#endif
+
+  flags = irqsave();
+  for (s = 0; s < CONFIG_WL_MAX_SOCKETS; s++)
+    {
+      if (priv->sockets[s].sd == FREE_SLOT)
+        {
+          priv->sockets[s].sd = sd;
+          break;
+        }
+    }
+
+  irqrestore(flags);
+  return s >= CONFIG_WL_MAX_SOCKETS ? -1 : OK;
+}
+
+/****************************************************************************
+ * Name: cc3000_remove_socket
+ *
+ * Description:
+ *   Removes a socket from the list of monitoring for long operation
+ *
+ * Input Parameters:
+ *   sd      cc3000 socket handle
+ *   minor   - The input device minor number
+ *
+ * Returned Value:
+ *   Zero is returned on success.  Otherwise, a -1 value is
+ *   returned to indicate socket not found.
+ *
+ ****************************************************************************/
+
+int cc3000_remove_socket(int sd, int minor)
+{
+  FAR struct cc3000_dev_s *priv;
+  irqstate_t flags;
+  int s;
+
+  if (sd < 0)
+    {
+      return sd;
+    }
+
+#ifndef CONFIG_CC3000_MULTIPLE
+  priv = &g_cc3000;
+#else
+  for (priv = g_cc3000list;
+       priv && priv->minor != minor;
+       priv = priv->flink);
+
+  ASSERT(priv != NULL);
+#endif
+
+ flags = irqsave();
+ if (priv->accepting_socket.acc.sd == sd)
+   {
+     priv->accepting_socket.acc.sd = FREE_SLOT;
+     priv->accepting_socket.addrlen = 0;
+   }
+
+  for (s = 0; s < CONFIG_WL_MAX_SOCKETS; s++)
+    {
+      if (priv->sockets[s].sd == sd)
+        {
+          priv->sockets[s].sd = FREE_SLOT;
+          break;
+        }
+    }
+
+  irqrestore(flags);
+  return s >= CONFIG_WL_MAX_SOCKETS ? -1 : OK;
 }

@@ -5859,4 +5859,33 @@
 	  disabled (2013-10-23).
 	* arch/arm/src/sama5/sam_tc.c and .h:  First but at a timer/counter
 	  library for the SAMA5D3 (2013-10-23).
+	* configs/spark/nsh/defconfig:  Spark configuration update from David
+	  Sidrane (2013-10-24).
+	* drivers/wireless/cc3000/cc3000.c:  CC3000 driver update from David
+	  Sidrane (2013-10-24).
+	* arch/arm/include/stm32/chip.h and arch/arm/src/stm32/Kconfig:
+	  Add support for the STM32F207ZE chip. From Martin Lederhilger
+	  (2013-10-24).
+	* arch/arm/src/stm32/stm32_adc.c and stm32_pwm.c:  Fix some bits
+	  that should have been cleared in a register.  From Martin Lederhilger
+	  (2013-10-24).
+	* configs/olimex-stm32-p207 and other files:  Support for the Olimex
+	  STM32 P207 board added by Martin Lederhilger (2017-10-24).
+	* arch/arm/src/sama5/sam_adc.c, sam_tc.c and sam_tc.h:  Hook in the
+	  timer/counter logic so that it can driver periodic ADC sampling
+	  (2013-10-24).
+	* configs/freedom-kl25z/src/Makefile:  Only build kl_wifi.c if
+	  CONFIG_WL_CC3000 is selected.  From Alan Carvalho de Assis
+	  (2013-10-24).
+	* configs/sama5d3x-ek/src/sam_adc.c:  Integrate support for the
+	  apps/examples/adc into the SAMA5D3x-EK configuration (2013-10-24).
+	* include/nuttx/fs/ioctl.h and arch/arm/src/sama5/sam_adc.c:  Add
+	  and ioctl command that can be used to trigger ADC/DAC conversion
+	  (2015-10-25).
+	* configs/spark:  Spark configuration updated by David Sidrane
+	  (2013-10-25).
+	* drivers/wireless/cc3000 and include/nuttx/wireless/cc3000:
+	  CC3000 driver update from David Sidrane (2013-10-25).
+	* arch/arm/src/sama5/chip/sam_isi.h:  Camera interface register
+	  definitions added (2013-10-26).
 
