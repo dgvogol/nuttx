@@ -173,48 +173,59 @@
 #define SAMA5_CHAN11_ENABLE   0
 
 #if defined(CONFIG_SAMA5_ADC_CHAN0)
-#  undef SAMA5_CHAN0_ENABLE
+#  undef  SAMA5_CHAN0_ENABLE
 #  define SAMA5_CHAN0_ENABLE  ADC_INT_EOC0
-#elif defined(CONFIG_SAMA5_ADC_CHAN1)
-#  undef SAMA5_CHAN1_ENABLE
+#endif
+#if defined(CONFIG_SAMA5_ADC_CHAN1)
+#  undef  SAMA5_CHAN1_ENABLE
 #  define SAMA5_CHAN1_ENABLE  ADC_INT_EOC1
-#elif defined(CONFIG_SAMA5_ADC_CHAN2)
-#  undef SAMA5_CHAN2_ENABLE
+#endif
+#if defined(CONFIG_SAMA5_ADC_CHAN2)
+#  undef  SAMA5_CHAN2_ENABLE
 #  define SAMA5_CHAN2_ENABLE  ADC_INT_EOC2
-#elif defined(CONFIG_SAMA5_ADC_CHAN3)
-#  undef SAMA5_CHAN3_ENABLE
+#endif
+#if defined(CONFIG_SAMA5_ADC_CHAN3)
+#  undef  SAMA5_CHAN3_ENABLE
 #  define SAMA5_CHAN3_ENABLE  ADC_INT_EOC3
-#elif defined(CONFIG_SAMA5_ADC_CHAN4)
-#  undef SAMA5_CHAN4_ENABLE
+#endif
+#if defined(CONFIG_SAMA5_ADC_CHAN4)
+#  undef  SAMA5_CHAN4_ENABLE
 #  define SAMA5_CHAN4_ENABLE  ADC_INT_EOC4
-#elif defined(CONFIG_SAMA5_ADC_CHAN5)
-#  undef SAMA5_CHAN5_ENABLE
+#endif
+#if defined(CONFIG_SAMA5_ADC_CHAN5)
+#  undef  SAMA5_CHAN5_ENABLE
 #  define SAMA5_CHAN5_ENABLE  ADC_INT_EOC5
-#elif defined(CONFIG_SAMA5_ADC_CHAN6)
-#  undef SAMA5_CHAN6_ENABLE
+#endif
+#if defined(CONFIG_SAMA5_ADC_CHAN6)
+#  undef  SAMA5_CHAN6_ENABLE
 #  define SAMA5_CHAN6_ENABLE  ADC_INT_EOC6
-#elif defined(CONFIG_SAMA5_ADC_CHAN7)
-#  undef SAMA5_CHAN7_ENABLE
+#endif
+#if defined(CONFIG_SAMA5_ADC_CHAN7)
+#  undef  SAMA5_CHAN7_ENABLE
 #  define SAMA5_CHAN7_ENABLE  ADC_INT_EOC7
-#elif defined(CONFIG_SAMA5_ADC_CHAN8)
-#  undef SAMA5_CHAN8_ENABLE
+#endif
+#if defined(CONFIG_SAMA5_ADC_CHAN8)
+#  undef  SAMA5_CHAN8_ENABLE
 #  define SAMA5_CHAN8_ENABLE  ADC_INT_EOC8
-#elif defined(CONFIG_SAMA5_ADC_CHAN9)
-#  undef SAMA5_CHAN9_ENABLE
+#endif
+#if defined(CONFIG_SAMA5_ADC_CHAN9)
+#  undef  SAMA5_CHAN9_ENABLE
 #  define SAMA5_CHAN9_ENABLE  ADC_INT_EOC9
-#elif defined(CONFIG_SAMA5_ADC_CHAN10)
-#  undef SAMA5_CHAN10_ENABLE
+#endif
+#if defined(CONFIG_SAMA5_ADC_CHAN10)
+#  undef  SAMA5_CHAN10_ENABLE
 #  define SAMA5_CHAN10_ENABLE  ADC_INT_EOC10
-#elif defined(CONFIG_SAMA5_ADC_CHAN11)
-#  undef SAMA5_CHAN11_ENABLE
+#endif
+#if defined(CONFIG_SAMA5_ADC_CHAN11)
+#  undef  SAMA5_CHAN11_ENABLE
 #  define SAMA5_CHAN11_ENABLE  ADC_INT_EOC11
 #endif
 
 #define SAMA5_CHAN_ENABLE \
-  (SAMA5_CHAN0_ENABLE || SAMA5_CHAN1_ENABLE  || SAMA5_CHAN2_ENABLE  || \
-   SAMA5_CHAN3_ENABLE || SAMA5_CHAN4_ENABLE  || SAMA5_CHAN5_ENABLE  || \
-   SAMA5_CHAN6_ENABLE || SAMA5_CHAN7_ENABLE  || SAMA5_CHAN8_ENABLE  || \
-   SAMA5_CHAN9_ENABLE || SAMA5_CHAN10_ENABLE || SAMA5_CHAN11_ENABLE)
+  (SAMA5_CHAN0_ENABLE | SAMA5_CHAN1_ENABLE  | SAMA5_CHAN2_ENABLE  | \
+   SAMA5_CHAN3_ENABLE | SAMA5_CHAN4_ENABLE  | SAMA5_CHAN5_ENABLE  | \
+   SAMA5_CHAN6_ENABLE | SAMA5_CHAN7_ENABLE  | SAMA5_CHAN8_ENABLE  | \
+   SAMA5_CHAN9_ENABLE | SAMA5_CHAN10_ENABLE | SAMA5_CHAN11_ENABLE)
 
 /* If we are supporting the analog chang feature, then sure that there
  * is a gain setting for each enabled channel.
@@ -346,6 +357,19 @@
 #  undef SAMA5_ADC_UNUSED
 #endif
 
+/* Number of DMA samples to collect */
+
+#if !defined(CONFIG_SAMA5_ADC_DMA)
+#  undef  CONFIG_SAMA5_ADC_DMASAMPLES
+#  define CONFIG_SAMA5_ADC_DMASAMPLES 1
+#elif !defined(CONFIG_SAMA5_ADC_DMASAMPLES)
+#  error CONFIG_SAMA5_ADC_DMASAMPLES must be defined
+#elif CONFIG_SAMA5_ADC_DMASAMPLES < 2
+#  warning Values of ONFIG_SAMA5_ADC_DMASAMPLES < 2 are inefficient
+#endif
+
+#define SAMA5_ADC_SAMPLES (CONFIG_SAMA5_ADC_DMASAMPLES * SAMA5_NCHANNELS)
+
 /* Clocking */
 
 #if BOARD_MCK_FREQUENCY <= SAM_ADC_MAXPERCLK
@@ -394,8 +418,8 @@ struct sam_adc_s
   /* DMA sample data buffer */
 
 #ifdef CONFIG_SAMA5_ADC_DMA
-  uint32_t evenbuf[SAMA5_NCHANNELS];
-  uint32_t oddbuf[SAMA5_NCHANNELS];
+  uint16_t evenbuf[SAMA5_ADC_SAMPLES];
+  uint16_t oddbuf[SAMA5_ADC_SAMPLES];
 #endif
 #endif /* SAMA5_ADC_HAVE_CHANNELS */
 
@@ -427,6 +451,7 @@ static void sam_adc_dmadone(void *arg);
 static void sam_adc_dmacallback(DMA_HANDLE handle, void *arg, int result);
 static int  sam_adc_dmasetup(struct sam_adc_s *priv, FAR uint8_t *buffer,
                              size_t buflen);
+static void sam_adc_dmastart(struct sam_adc_s *priv);
 #endif
 
 /* ADC interrupt handling */
@@ -585,7 +610,8 @@ static bool sam_adc_checkreg(struct sam_adc_s *priv, bool wr,
 static void sam_adc_dmadone(void *arg)
 {
   struct sam_adc_s *priv = (struct sam_adc_s *)arg;
-  uint32_t *buffer;
+  uint16_t *buffer;
+  uint16_t *next;
   uint16_t sample;
   int chan;
   int i;
@@ -593,29 +619,67 @@ static void sam_adc_dmadone(void *arg)
   avdbg("ready=%d enabled=%d\n", priv->enabled, priv->ready);
   ASSERT(priv != NULL && !priv->ready);
 
-  /* If the DMA is disabled, just ignore the data */
+  /* If the DMA transfer is not enabled, just ignore the data (and do not start
+   * the next DMA transfer).
+   */
 
-  if (!priv->enabled)
+  if (priv->enabled)
     {
-      /* Select the completed DMA buffer */
+      /* Toggle to the next buffer.
+       *
+       *   buffer - The buffer on which the DMA has just completed
+       *   next   - The buffer in which to start the next DMA
+       */
 
-      buffer = priv->odd ? priv->evenbuf : priv->oddbuf;
+      if (priv->odd)
+        {
+          buffer    = priv->oddbuf;
+          next      = priv->evenbuf;
+          priv->odd = false;
+        }
+      else
+        {
+          buffer    = priv->evenbuf;
+          next      = priv->oddbuf;
+          priv->odd = true;
+        }
+
+      /* Restart the DMA conversion as quickly as possible using the next
+       * buffer.
+       *
+       * REVISIT: In the original design, toggling the ping-pong buffers and
+       * restarting the DMA was done in the interrupt handler so that the
+       * next buffer could be filling while the current buffer is being
+       * processed here on the worker thread.  But, unfortunately,
+       * sam_adcm_dmasetup() cannot be called from an interrupt handler.
+       *
+       * A consequence of this is that there is a small window from the time
+       * that the last set of samples was taken, the worker thread runs, and
+       * the follow logic restarts the DMA in which samples could be lost!
+       *
+       * Without the interrupt level DMA restart logic, there is not really
+       * any good reason to support the ping-poing buffers at all.
+       */
+
+      sam_adc_dmasetup(priv, (FAR uint8_t *)next,
+                       SAMA5_ADC_SAMPLES * sizeof(uint16_t));
+
 
       /* Invalidate the DMA buffer so that we are guaranteed to reload the
        * newly DMAed data from RAM.
        */
 
       cp15_invalidate_dcache((uintptr_t)buffer,
-                             (uintptr_t)buffer + SAMA5_NCHANNELS * sizeof(uint32_t));
+                             (uintptr_t)buffer + SAMA5_ADC_SAMPLES * sizeof(uint16_t));
 
       /* Process each sample */
 
-      for (i = 0; i < SAMA5_NCHANNELS; i++, buffer++)
+      for (i = 0; i < SAMA5_ADC_SAMPLES; i++, buffer++)
         {
           /* Get the sample and the channel number */
 
           chan   = (int)((*buffer & ADC_LCDR_CHANB_MASK) >> ADC_LCDR_CHANB_SHIFT);
-          sample = (uint16_t)((*buffer & ADC_LCDR_DATA_MASK) >> ADC_LCDR_DATA_SHIFT);
+          sample = ((*buffer & ADC_LCDR_DATA_MASK) >> ADC_LCDR_DATA_SHIFT);
 
           /* And give the sample data to the ADC upper half */
 
@@ -628,6 +692,26 @@ static void sam_adc_dmadone(void *arg)
   priv->ready = true;
 }
 #endif
+
+/****************************************************************************
+ * Name: sam_adc_dmastart
+ *
+ * Description:
+ *   Initiate DMA sampling.
+ *
+ ****************************************************************************/
+
+static void sam_adc_dmastart(struct sam_adc_s *priv)
+{
+  /* Make sure that the worker is available and that DMA is not disabled */
+
+  if (priv->ready && priv->enabled)
+    {
+      priv->odd = false;  /* Start with the even buffer */
+      sam_adc_dmasetup(priv, (FAR uint8_t *)priv->evenbuf,
+                       SAMA5_ADC_SAMPLES * sizeof(uint16_t));
+    }
+}
 
 /****************************************************************************
  * Name: sam_adc_dmacallback
@@ -646,22 +730,28 @@ static void sam_adc_dmacallback(DMA_HANDLE handle, void *arg, int result)
   int ret;
 
   allvdbg("ready=%d enabled=%d\n", priv->enabled, priv->ready);
+  DEBUGASSERT(priv->ready);
 
-  /* Check of the bottom half is keeping up with us */
+  /* Check of the bottom half is keeping up with us.
+   *
+   * ready == false:  Would mean that the worker thready has not ran since
+   *   the the last DMA callback.
+   * enabled == false: Means that the upper half has asked us nicely to stop
+   *   transferring DMA data.
+   */
 
   if (priv->ready && priv->enabled)
     {
-      /* Toggle to the next buffer.  Note that the toggle only occurs if
-       * the bottom half is ready to accept more data.  Otherwise, we
-       * will get a data overrun and just re-use the last buffer.
-       */
-
-      priv->odd   = !priv->odd;
-      priv->ready = false;
-
-      /* Transfer processing to the bottom half */
+      /* Verify that the worker is available */
 
       DEBUGASSERT(priv->work.worker == NULL);
+
+      /* Mark the work as busy and schedule the DMA done processing to
+       * occur on the worker thread.
+       */
+
+      priv->ready = false;
+
       ret = work_queue(HPWORK, &priv->work, sam_adc_dmadone, priv, 0);
       if (ret != 0)
         {
@@ -669,11 +759,20 @@ static void sam_adc_dmacallback(DMA_HANDLE handle, void *arg, int result)
         }
     }
 
-  /* Restart the DMA conversion using the next buffer */
-
-  sam_adc_dmasetup(priv->dma,
-                   priv->odd ? (void *)priv->oddbuf : (void *)priv->evenbuf,
-                   SAMA5_NCHANNELS * sizeof(uint32_t));
+  /* REVISIT: There used to be logic here to toggle the ping-pong buffers and
+   * to restart the DMA conversion.  This would allow refilling one buffer
+   * while the worker processes the other buffer that was just filled. But,
+   * unfortunately, sam_adcm_dmasetup() and dma_rxsetup cannot be called
+   * from an interrupt handler.
+   *
+   * A consequence of this is that there is a small window from the time
+   * that the last set of samples was taken, the worker thread runs, and the
+   * logic on the worker thread restarts the DMA.  Samples trigger during
+   * this window will be be lost!
+   *
+   * Without this logic, there is not really any strong reason to support
+   * the ping-poing buffers at all.
+   */
 }
 #endif
 
@@ -991,17 +1090,18 @@ static int sam_adc_setup(struct adc_dev_s *dev)
   sam_adc_autocalibrate(priv);
 
 #ifdef CONFIG_SAMA5_ADC_DMA
-  /* Configure for DMA transfer */
+  /* Initiate DMA transfers */
 
-  priv->odd     = false;
-  priv->ready   = true;
-  priv->enabled = false;
+  priv->ready   = true;   /* Worker is avaiable */
+  priv->enabled = true;   /* Transfers are enabled */
 
-  sam_adc_dmasetup(priv, (void *)priv->evenbuf, SAMA5_NCHANNELS);
+  sam_adc_dmastart(priv);
+
 #else
   /* Enable end-of-conversion interrupts for all enabled channels. */
 
   sam_adc_putreg(priv, SAM_ADC_IER, SAMA5_CHAN_ENABLE);
+
 #endif
 
   /* Configure trigger mode and start conversion */
@@ -1024,11 +1124,12 @@ static void sam_adc_shutdown(struct adc_dev_s *dev)
 
   avdbg("Shutdown\n");
 
-  /* Disable ADC interrupts, both at the level of the ADC device and at the
-   * level of the AIC.
-   */
+  /* Reset the ADC peripheral */
 
-  sam_adc_putreg(priv, SAM_ADC_IDR, ADC_INT_ALL);
+  sam_adc_reset(dev);
+
+  /* Disable ADC interrupts at the level of the AIC */
+
   up_disable_irq(SAM_IRQ_ADC);
 
   /* Then detach the ADC interrupt handler. */
@@ -1051,9 +1152,20 @@ static void sam_adc_rxint(struct adc_dev_s *dev, bool enable)
   avdbg("enable=%d\n", enable);
 
 #ifdef CONFIG_SAMA5_ADC_DMA
-  /* We don't stop the DMA when RX is disabled, we just stop the data transfer */
+  /* Ignore redundant requests */
 
-  priv->enabled = enable;
+  if (priv->enabled != enable)
+    {
+      /* Set a flag.  If disabling, the DMA sequence will terminate at the
+       * completion of the next DMA.
+       */
+
+      priv->enabled = enable;
+
+      /* If enabling, then we need to restart the DMA transfer */
+
+      sam_adc_dmastart(priv);
+    }
 
 #else
   /* Are we enabling or disabling? */
@@ -1129,9 +1241,11 @@ static int sam_adc_settimer(struct sam_adc_s *priv, uint32_t frequency,
   uint32_t div;
   uint32_t tcclks;
   uint32_t mode;
+  uint32_t fdiv;
   int ret;
 
   avdbg("frequency=%ld channel=%d\n", (long)frequency, channel);
+  DEBUGASSERT(priv && frequency > 0);
 
   /* Configure TC for a 1Hz frequency and trigger on RC compare. */
 
@@ -1161,10 +1275,21 @@ static int sam_adc_settimer(struct sam_adc_s *priv, uint32_t frequency,
       return -EINVAL;
     }
 
-  /* Set up TC_RA and TC_RC */
+  /* The divider returned by sam_tc_divisor() is the reload value that will
+   * achieve a 1HZ rate.  We need to multiply this to get the desired
+   * frequency.  sam_tc_divisor() should have already assure that we can
+   * do this without overflowing a 32-bit unsigned integer.
+   */
 
-  sam_tc_setregister(priv->tc, TC_REGA, div / 2);
-  sam_tc_setregister(priv->tc, TC_REGC, div);
+  fdiv = div * frequency;
+  DEBUGASSERT(div > 0 && div <= fdiv); /* Will check for integer overflow */
+
+  /* Set up TC_RA and TC_RC.  The frequency is determined by RA and RC:  TIOA is
+   * cleared on RA match; TIOA is set on RC match.
+   */
+
+  sam_tc_setregister(priv->tc, TC_REGA, fdiv << 1);
+  sam_tc_setregister(priv->tc, TC_REGC, fdiv);
 
   /* And start the timer */
 
@@ -1720,52 +1845,52 @@ static void sam_adc_channels(struct sam_adc_s *priv)
 
   regval = 0;
 
-  #ifdef CONFIG_SAMA5_ADC_CHAN0
+#ifdef CONFIG_SAMA5_ADC_CHAN0
   regval |= ADC_CH0;
 #endif
 
 #ifdef CONFIG_SAMA5_ADC_CHAN1
-  regval |= ADC_CH0;
+  regval |= ADC_CH1;
 #endif
 
 #ifdef CONFIG_SAMA5_ADC_CHAN2
-  regval |= ADC_CH0;
+  regval |= ADC_CH2;
 #endif
 
 #ifdef CONFIG_SAMA5_ADC_CHAN3
-  regval |= ADC_CH0;
+  regval |= ADC_CH3;
 #endif
 
 #ifdef CONFIG_SAMA5_ADC_CHAN4
-  regval |= ADC_CH0;
+  regval |= ADC_CH4;
 #endif
 
 #ifdef CONFIG_SAMA5_ADC_CHAN5
-  regval |= ADC_CH0;
+  regval |= ADC_CH5;
 #endif
 
 #ifdef CONFIG_SAMA5_ADC_CHAN6
-  regval |= ADC_CH0;
+  regval |= ADC_CH6;
 #endif
 
 #ifdef CONFIG_SAMA5_ADC_CHAN7
-  regval |= ADC_CH0;
+  regval |= ADC_CH7;
 #endif
 
 #ifdef CONFIG_SAMA5_ADC_CHAN8
-  regval |= ADC_CH0;
+  regval |= ADC_CH8;
 #endif
 
 #ifdef CONFIG_SAMA5_ADC_CHAN9
-  regval |= ADC_CH0;
+  regval |= ADC_CH9;
 #endif
 
 #ifdef CONFIG_SAMA5_ADC_CHAN10
-  regval |= ADC_CH0;
+  regval |= ADC_CH10;
 #endif
 
 #ifdef CONFIG_SAMA5_ADC_CHAN11
-  regval |= ADC_CH0;
+  regval |= ADC_CH11;
 #endif
 
   sam_adc_putreg(priv, SAM_ADC_CHER, regval);
