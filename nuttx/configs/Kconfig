@@ -231,6 +231,12 @@ config ARCH_BOARD_LPCXPRESSO
 		Embedded Artists base board with NXP LPCExpresso LPC1768.  This board
 		is based on the NXP LPC1768.  The Code Red toolchain is used by default.
 
+config ARCH_BOARD_ANDCIV_V3
+	bool "LPC1758 Based Andciv 3D Printer Control Board, V3"
+	depends on ARCH_CHIP_LPC1758
+	---help---
+		Andciv V3, LPC1758 based 3D printer controller board
+
 config ARCH_BOARD_LPC4330_XPLORER
 	bool "NXG LPC4330-Xplorer"
 	depends on ARCH_CHIP_LPC4330FET100
@@ -826,6 +832,7 @@ config ARCH_BOARD
 	default "lm4f120-launchpad"   if ARCH_BOARD_LM4F120_LAUNCHPAD
 	default "lpc4330-xplorer"     if ARCH_BOARD_LPC4330_XPLORER
 	default "lpcxpresso-lpc1768"  if ARCH_BOARD_LPCXPRESSO
+	default "andciv-v3"           if ARCH_BOARD_ANDCIV_V3
 	default "m68322evb"           if ARCH_BOARD_M68332EVB
 	default "maple"               if ARCH_BOARD_MAPLE
 	default "mbed"                if ARCH_BOARD_MBED
@@ -1009,6 +1016,9 @@ source "configs/lpc4330-xplorer/Kconfig"
 endif
 if ARCH_BOARD_LPCXPRESSO
 source "configs/lpcxpresso-lpc1768/Kconfig"
+endif
+if ARCH_BOARD_ANDCIV_V3
+source "configs/andciv-v3/Kconfig"
 endif
 if ARCH_BOARD_M68332EVB
 source "configs/m68332evb/Kconfig"
