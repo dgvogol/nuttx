@@ -130,8 +130,7 @@
 #define ETH_MCFG_CLKSEL_DIV ETH_MCFG_CLKSEL_DIV20
 
 /* LED definitions ******************************************************************/
-/* The LPCXpresso LPC1768 board has a single red LED (there are additional LEDs on
- * the base board not considered here).
+/* andciv-v3: no spare LED on board could be used.
  */
                                      /* ON      OFF                 */
 #define LED_STARTED                0 /* OFF     ON  (never happens) */
@@ -176,19 +175,17 @@
  * P0[30]/USB_D-                     J6-36                   USB_D-
  */
 
-#define GPIO_UART3_TXD     GPIO_UART3_TXD_1
-#define GPIO_I2C1_SDA      GPIO_I2C1_SDA_1
-#define GPIO_UART3_RXD     GPIO_UART3_RXD_1
-#define GPIO_I2C1_SCL      GPIO_I2C1_SCL_1
-#define GPIO_SSP1_SCK      GPIO_SSP1_SCK_1
-#define GPIO_UART2_TXD     GPIO_UART2_TXD_1
-#define GPIO_UART2_RXD     GPIO_UART2_RXD_1
-#define GPIO_UART1_TXD     GPIO_UART1_TXD_1
-#define GPIO_SSP0_SCK      GPIO_SSP0_SCK_1
-#define GPIO_UART1_RXD     GPIO_UART1_RXD_1
-#define GPIO_SSP0_SSEL     GPIO_SSP0_SSEL_1
-#define GPIO_SSP0_MISO     GPIO_SSP0_MISO_1
-#define GPIO_SSP0_MOSI     GPIO_SSP0_MOSI_1
+#define GPIO_I2C1_SDA
+#define GPIO_I2C1_SCL 
+#define GPIO_SSP1_SCK 
+#define GPIO_UART2_TXD
+#define GPIO_UART2_RXD
+#define GPIO_UART1_TXD
+#define GPIO_SSP0_SCK 
+#define GPIO_UART1_RXD
+#define GPIO_SSP0_SSEL
+#define GPIO_SSP0_MISO
+#define GPIO_SSP0_MOSI
 
 /* P1[0]/ENET-TXD0                   J6-34?  TXD0            TX-(Ethernet PHY)
  * P1[1]/ENET_TXD1                   J6-35?  TXD1            TX+(Ethernet PHY)
@@ -216,8 +213,8 @@
  * P1[31]/SCK1/AD0[5]                J6-20                   AD0.5
  */
 
-#define GPIO_ENET_MDC      GPIO_ENET_MDC_1
-#define GPIO_ENET_MDIO     GPIO_ENET_MDIO_1
+#define GPIO_ENET_MDC
+#define GPIO_ENET_MDIO
 
 /* P2[0]/PWM1.1/TXD1                 J6-42                   PWM1.1 / RGB LED / RS422 RX
  * P2[1]/PWM1.2/RXD1                 J6-43                   PWM1.2 / OLED voltage / RGB LED / RS422 RX
@@ -235,19 +232,22 @@
  * P2[13]/EINT3/I2STX_SDA            J6-27                 
  */
  
-#define GPIO_PWM1p1        GPIO_PWM1p1_2
-#define GPIO_PWM1p2        GPIO_PWM1p2_2
-#define GPIO_PWM1p3        GPIO_PWM1p3_2
-#define GPIO_PWM1p4        GPIO_PWM1p4_2
-#define GPIO_PWM1p5        GPIO_PWM1p5_2
-#define GPIO_PWM1p6        GPIO_PWM1p6_2
+#define GPIO_PWM1p1
+#define GPIO_PWM1p2
+#define GPIO_PWM1p3
+#define GPIO_PWM1p4
+#define GPIO_PWM1p5
+#define GPIO_PWM1p6
 
 /* P3[25]/MAT0.0/PWM1.2              PAD13                   N/A
  * P3[26]/STCLK/MAT0.1/PWM1.3        PAD14                   N/A
- *
- * P4[28]/RX-MCLK/MAT2.0/TXD3        PAD15                   N/A
+ */
+
+/* P4[28]/RX-MCLK/MAT2.0/TXD3        PAD15                   N/A
  * P4[29]/TX-MCLK/MAT2.1/RXD3        PAD16                   N/A
  */
+#define GPIO_UART3_TXD GPIO_UART3_TXD_3
+#define GPIO_UART3_RXD GPIO_UART3_RXD_3
 
 /************************************************************************************
  * Public Types
