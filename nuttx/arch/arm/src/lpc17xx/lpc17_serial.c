@@ -552,113 +552,28 @@ static inline void up_enablebreaks(struct up_dev_s *priv, bool enable)
  *   Select a CCLK divider to produce the UART PCLK.  The stratey is to select the
  *   smallest divisor that results in an solution within range of the 16-bit
  *   DLM and DLL divisor:
- *
- *     PCLK = CCLK / divisor
- *     BAUD = PCLK / (16 * DL)
- *
- *   Ignoring the fractional divider for now. (If you want to extend this driver
- *   to support the fractional divider, see lpc43xx_uart.c.  The LPC43xx uses
- *   the same peripheral and that logic could easily leveraged here).
- *
- *   For the LPC176x the PCLK is determined by the UART-specific divisor in
- *   PCLKSEL0 or PCLKSEL1:
- *
- *     PCLK = CCLK / divisor
- *
- *   For the LPC178x, the PCLK is determined by the global divisor setting in
- *   the PLKSEL register (and, in that case, this function is not needed).
- *
- *   NOTE:  This is an inline function.  If a typical optimization level is used and
- *   a constant is provided for the desired frequency, then most of the following
- *   logic will be optimized away.
+ *     BAUD = CCLK / (div * 16 * DL * fdr_value)
+ *     -- DL < 0xffff
+ *     -- fdr_value is within [1.0, 29.0/15.0]
+ *  In general, we would like to keep the PCLK as higher as possible to get a better
+ *  resolution, but do not want a DL overflow
  *
  ************************************************************************************/
 
 #ifdef LPC176x
 static inline uint32_t lpc17_uartcclkdiv(uint32_t baud)
 {
-  /* Ignoring the fractional divider, the BAUD is given by:
-   *
-   *   BAUD = PCLK / (16 * DL), or
-   *   DL   = PCLK / BAUD / 16
-   *
-   * Where for the LPC176x the PCLK is determined by the UART-specific divisor in
-   * PCLKSEL0 or PCLKSEL1:
-   *
-   *   PCLK = CCLK / divisor
-   *
-   * And for the LPC178x, the PCLK is determined by the global divisor setting in
-   * the PLKSEL register (and, in that case, this function is not needed).
-   */
-
-  /* Calculate and optimal PCLKSEL0/1 divisor.
-   * First, check divisor == 1.  This works if the upper limit is met:
-   *
-   *   DL < 0xffff, or
-   *   PCLK / BAUD / 16 < 0xffff, or
-   *   CCLK / BAUD / 16 < 0xffff, or
-   *   CCLK < BAUD * 0xffff * 16
-   *   BAUD > CCLK / 0xffff / 16
-   *
-   * And the lower limit is met (we can't allow DL to get very close to one).
-   *
-   *   DL >= MinDL
-   *   CCLK / BAUD / 16 >= MinDL, or
-   *   BAUD <= CCLK / 16 / MinDL
-   */
-
-  if (baud < (LPC17_CCLK / 16 / UART_MINDL ))
-    {
-      return SYSCON_PCLKSEL_CCLK;
+    /* note: the fdr_value is not taking into account the calc here */
+    if ((LPC17_CCLK/16/baud) <= 0xffff) {
+        return SYSCON_PCLKSEL_CCLK;
     }
-   
-  /* Check divisor == 2.  This works if:
-   *
-   *   2 * CCLK / BAUD / 16 < 0xffff, or
-   *   BAUD > CCLK / 0xffff / 8
-   *
-   * And
-   *
-   *   2 * CCLK / BAUD / 16 >= MinDL, or
-   *   BAUD <= CCLK / 8 / MinDL
-   */
-
-  else if (baud < (LPC17_CCLK / 8 / UART_MINDL ))
-    {
-      return SYSCON_PCLKSEL_CCLK2;
+    else if ((LPC17_CCLK/32/baud) <= 0xffff) {
+        return SYSCON_PCLKSEL_CCLK2;
     }
-
-  /* Check divisor == 4.  This works if:
-   *
-   *   4 * CCLK / BAUD / 16 < 0xffff, or
-   *   BAUD > CCLK / 0xffff / 4
-   *
-   * And
-   *
-   *   4 * CCLK / BAUD / 16 >= MinDL, or
-   *   BAUD <= CCLK / 4 / MinDL 
-   */
-
-  else if (baud < (LPC17_CCLK / 4 / UART_MINDL ))
-    {
-      return SYSCON_PCLKSEL_CCLK4;
+    else if ((LPC17_CCLK/64/baud) <= 0xffff) {
+        return SYSCON_PCLKSEL_CCLK4;
     }
-
-  /* Check divisor == 8.  This works if:
-   *
-   *   8 * CCLK / BAUD / 16 < 0xffff, or
-   *   BAUD > CCLK / 0xffff / 2
-   *
-   * And
-   *
-   *   8 * CCLK / BAUD / 16 >= MinDL, or
-   *   BAUD <= CCLK / 2 / MinDL 
-   */
-
-  else /* if (baud < (LPC17_CCLK / 2 / UART_MINDL )) */
-    {
-      return SYSCON_PCLKSEL_CCLK8;
-    }
+    return SYSCON_PCLKSEL_CCLK8; 
 }
 #endif /* LPC176x */
 
@@ -859,6 +774,123 @@ static inline uint32_t lpc17_uartdl(uint32_t baud)
 }
 #endif
 
+
+/************************************************************************************
+ * Name: lpc17_uart_dl_fdr
+ *
+ * Descrption:
+ *   Select a divider and a fractional divider to produce the BAUD from the UART PCLK.
+ *
+ ************************************************************************************/
+#ifdef LPC176x
+static uint32_t lpc17_uart_dl_fdr(uint32_t baud, uint8_t cclk_div, uint32_t* result_fdr)
+{
+  uint32_t prediv_shift;        /* shift value, corresponding to cclk/(16*prediv) */
+  uint32_t dl;                  /* best DLM/DLL full value */
+  uint32_t mul;                 /* best FDR MULVALL value */
+  uint32_t divadd;              /* best FDR DIVADDVAL value */
+  uint32_t best;                /* error value associated with best {dl, mul, divadd} */
+  uint32_t cdl;                 /* candidate DLM/DLL full value */
+  uint32_t cmul;                /* candidate FDR MULVALL value */
+  uint32_t cdivadd;             /* candidate FDR DIVADDVAL value */
+  uint32_t errval;              /* error value associated with the candidate */
+
+  switch (cclk_div)
+    {
+    case SYSCON_PCLKSEL_CCLK:
+      prediv_shift = 4;
+      break;
+    case SYSCON_PCLKSEL_CCLK2:
+      prediv_shift = 5;
+      break;
+    case SYSCON_PCLKSEL_CCLK4:
+      prediv_shift = 6;
+      break;
+    case SYSCON_PCLKSEL_CCLK8:
+      prediv_shift = 7;
+      break;
+    default:
+      DEBUGPANIC();
+      break;
+    }
+
+ /* The buadrate is given by:
+  * 
+  * baudrate =  cclk * mul / { (mul + divadd) * (16 * prediv * dl) }
+  * dl       =  cclk * mul / { (mul + divadd) * (16 * prediv * baudrate) }
+  *          = { (cclk * mul) / (16 * prediv) } / { (mul + divadd) * baudrate }
+  *          = { (cclk * mul) >> prediv_shift } / { (mul + divadd) * baudrate }
+  *
+  * where the  value of MULVAL and DIVADDVAL comply with:
+  *
+  *  0 < mul < 16
+  *  0 <= divadd < mul
+  */
+ 
+  best   = UINT32_MAX;
+  divadd = 0;
+  mul    = 1;
+  dl     = 0;
+
+  /* try each mulitplier value in the valid range */
+  for (cmul = 15 ; cmul > 0; cmul--)
+    {
+      /* try each divider value in the valid range */
+      for (cdivadd = 0 ; cdivadd < cmul ; cdivadd++)
+        {
+          /* candidate:
+           *   dl         = ((cclk * mul) >> prediv_shift) / ((mul + cdivadd) * baudrate)
+           *   (dl << 32) = ((cclk << (32-prediv_shift)) * cmul / ((mul + cdivadd) * baudrate)
+          */
+          uint64_t dl64 = ((uint64_t)LPC17_CCLK << (32-prediv_shift)) * cmul /
+                          ((cmul + cdivadd) * baud);
+
+          /* the lower 32-bits of this value is the error */
+          errval = (uint32_t)(dl64 & 0x00000000ffffffffull);
+
+          /* the upper 32-bits is the candidate DL value */
+          cdl = (uint32_t)(dl64 >> 32);
+
+          /* round up */
+          if (errval > (1 << 31))
+            {
+              errval = -errval;
+              cdl++;
+            }
+
+          /* check if the resulting candidate DL value is within range */
+          if (cdl < 1 || cdl >= 65536)
+            {
+              /* no... try a different divadd value */
+              continue;
+            }
+
+          /* is this the best combination that we have seen so far? */
+          if (errval < best)
+            {
+              /* yes.. then the candidate is out best guess so far */
+              best   = errval;
+              dl     = cdl;
+              divadd = cdivadd;
+              mul    = cmul;
+
+              /* if the new best guess is exact (within our precision), then
+               * we are finished.
+               */
+              if (best == 0)
+                {
+                  goto __best_found;
+                }
+            }
+        } /* end of cdivadd loop */
+    }/* end of cmul loop */
+
+__best_found:
+  *result_fdr = (mul<<4)|divadd;
+  return dl;
+}
+#endif
+
 /****************************************************************************
  * Private Functions
  ****************************************************************************/
@@ -925,7 +957,8 @@ static int up_setup(struct uart_dev_s *dev)
   /* Set the BAUD divisor */
 
 #ifdef LPC176x
-  dl = lpc17_uartdl(priv->baud, priv->cclkdiv);
+  uint32_t fdr;
+  dl = lpc17_uart_dl_fdr(priv->baud, priv->cclkdiv, &fdr);
 #else
   dl = lpc17_uartdl(priv->baud);
 #endif
@@ -935,6 +968,11 @@ static int up_setup(struct uart_dev_s *dev)
   /* Clear DLAB */
 
   up_serialout(priv, LPC17_UART_LCR_OFFSET, lcr);
+
+#ifdef LPC176x
+  /* save the fractional divider value */
+  up_serialout(priv, LPC17_UART_FDR_OFFSET, fdr);
+#endif
 
   /* Configure the FIFOs */
 
@@ -1266,7 +1304,8 @@ static int up_ioctl(struct file *filep, int cmd, unsigned long arg)
         /* Set the BAUD divisor */
 
 #ifdef LPC176x
-        dl = lpc17_uartdl(priv->baud, priv->cclkdiv);
+        uint32_t fdr;
+        dl = lpc17_uart_dl_fdr(priv->baud, priv->cclkdiv, &fdr);
 #else
         dl = lpc17_uartdl(priv->baud);
 #endif
@@ -1276,6 +1315,11 @@ static int up_ioctl(struct file *filep, int cmd, unsigned long arg)
         /* Clear DLAB */
 
         up_serialout(priv, LPC17_UART_LCR_OFFSET, lcr);
+
+#ifdef LPC176x
+        /* save the fractional divider value */
+        up_serialout(priv, LPC17_UART_FDR_OFFSET, fdr);
+#endif
       }
       break;
 #endif
