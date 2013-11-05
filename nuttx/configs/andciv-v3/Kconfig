@@ -4,4 +4,10 @@
 #
 
 if ARCH_BOARD_ANDCIV_V3
+
+config ANDCIV_INIT_SP
+	bool "Initialize stack pointer after reset"
+	default y
+	depends on !ARMV7M_CMNVECTOR
+
 endif
