@@ -60,7 +60,7 @@
 /* This is the clock setup we configure for:
  *
  *   SYSCLK  = BOARD_OSCCLK_FREQUENCY  = 12MHz    -> Select Main oscillator for source
- *   PLL0CLK = (2 * 100 * SYSCLK) / 24 = 400MHz   -> PLL0 multipler=100, pre-divider=24
+ *   PLL0CLK = (2 * 100 * SYSCLK) / 6  = 400MHz   -> PLL0 multipler=100, pre-divider=6
  *   CCLCK   = 400MHz / 4              = 100MHz   -> CCLK divider = 4
  */
 
@@ -85,9 +85,9 @@
  *
  *  Source clock:               Main oscillator
  *  PLL0 Multiplier value (M):  100 
- *  PLL0 Pre-divider value (N): 24
+ *  PLL0 Pre-divider value (N): 6
  *
- *  PLL0CLK = (2 * 100 * SYSCLK) / 24 = 400MHz
+ *  PLL0CLK = (2 * 100 * SYSCLK) / 6 = 400MHz
  */
 
 #undef CONFIG_LPC17_PLL0
@@ -95,7 +95,7 @@
 #define BOARD_CLKSRCSEL_VALUE      SYSCON_CLKSRCSEL_MAIN
 
 #define BOARD_PLL0CFG_MSEL         100
-#define BOARD_PLL0CFG_NSEL         24
+#define BOARD_PLL0CFG_NSEL         6
 #define BOARD_PLL0CFG_VALUE \
   (((BOARD_PLL0CFG_MSEL-1) << SYSCON_PLL0CFG_MSEL_SHIFT) | \
    ((BOARD_PLL0CFG_NSEL-1) << SYSCON_PLL0CFG_NSEL_SHIFT))

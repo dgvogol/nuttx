@@ -561,7 +561,7 @@ static inline void up_enablebreaks(struct up_dev_s *priv, bool enable)
  ************************************************************************************/
 
 #ifdef LPC176x
-static inline uint32_t lpc17_uartcclkdiv(uint32_t baud)
+uint32_t lpc17_uartcclkdiv(uint32_t baud)
 {
     /* note: the fdr_value is not taking into account the calc here */
     if ((LPC17_CCLK/16/baud) <= 0xffff) {
@@ -783,7 +783,7 @@ static inline uint32_t lpc17_uartdl(uint32_t baud)
  *
  ************************************************************************************/
 #ifdef LPC176x
-static uint32_t lpc17_uart_dl_fdr(uint32_t baud, uint8_t cclk_div, uint32_t* result_fdr)
+uint32_t lpc17_uart_dl_fdr(uint32_t baud, uint8_t cclk_div, uint32_t* result_fdr)
 {
   uint32_t prediv_shift;        /* shift value, corresponding to cclk/(16*prediv) */
   uint32_t dl;                  /* best DLM/DLL full value */

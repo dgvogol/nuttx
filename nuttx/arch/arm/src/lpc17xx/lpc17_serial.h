@@ -48,6 +48,8 @@
 
 #include "lpc17_gpio.h"
 
+#include "chip.h"
+
 /************************************************************************************
  * Pre-processor Definitions
  ************************************************************************************/
@@ -129,5 +131,20 @@
 /************************************************************************************
  * Public Functions
  ************************************************************************************/
+#ifndef __ASSEMBLY__
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
+#ifdef LPC176x
+uint32_t lpc17_uartcclkdiv(uint32_t baud);
+uint32_t lpc17_uart_dl_fdr(uint32_t baud, uint8_t cclk_div, uint32_t* result_fdr);
+#endif
+
+#ifdef __cplusplus
+}
+#endif
+#endif /* __ASSEMBLY__ */
 
 #endif /* __ARCH_ARM_SRC_LPC17XX_LPC17_SERIAL_H */

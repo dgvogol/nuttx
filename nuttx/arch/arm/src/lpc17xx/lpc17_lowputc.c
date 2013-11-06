@@ -332,21 +332,22 @@ void lpc17_lowsetup(void)
  */
 
 #ifdef LPC176x
+  uint32_t cclkdiv = lpc17_uartcclkdiv(CONSOLE_BAUD);
   regval = getreg32(LPC17_SYSCON_PCLKSEL0);
   regval &= ~(SYSCON_PCLKSEL0_UART0_MASK|SYSCON_PCLKSEL0_UART1_MASK);
 #if defined(CONFIG_UART0_SERIAL_CONSOLE)
-  regval |= (CONSOLE_CCLKDIV << SYSCON_PCLKSEL0_UART0_SHIFT);
+  regval |= (cclkdiv << SYSCON_PCLKSEL0_UART0_SHIFT);
 #elif defined(CONFIG_UART1_SERIAL_CONSOLE)
-  regval |= (CONSOLE_CCLKDIV << SYSCON_PCLKSEL0_UART1_SHIFT);
+  regval |= (cclkdiv << SYSCON_PCLKSEL0_UART1_SHIFT);
 #endif
   putreg32(regval, LPC17_SYSCON_PCLKSEL0);
 
   regval = getreg32(LPC17_SYSCON_PCLKSEL1);
   regval &= ~(SYSCON_PCLKSEL1_UART2_MASK|SYSCON_PCLKSEL1_UART3_MASK);
 #if defined(CONFIG_UART2_SERIAL_CONSOLE)
-  regval |= (CONSOLE_CCLKDIV << SYSCON_PCLKSEL1_UART2_SHIFT);
+  regval |= (cclkdiv << SYSCON_PCLKSEL1_UART2_SHIFT);
 #elif defined(CONFIG_UART3_SERIAL_CONSOLE)
-  regval |= (CONSOLE_CCLKDIV << SYSCON_PCLKSEL1_UART3_SHIFT);
+  regval |= (cclkdiv << SYSCON_PCLKSEL1_UART3_SHIFT);
 #endif
   putreg32(regval, LPC17_SYSCON_PCLKSEL1);
 #endif
@@ -379,31 +380,57 @@ void lpc17_lowsetup(void)
 
 #if defined(HAVE_CONSOLE) && !defined(CONFIG_SUPPRESS_UART_CONFIG)
 
-  /* Clear fifos */
+  /* empty fifos */
+  putreg32(UART_FCR_FIFOEN|UART_FCR_RXRST|UART_FCR_TXRST, CONSOLE_BASE+LPC17_UART_FCR_OFFSET);
+  putreg32(0, CONSOLE_BASE+LPC17_UART_FCR_OFFSET);
 
-  putreg32(UART_FCR_RXRST|UART_FCR_TXRST, CONSOLE_BASE+LPC17_UART_FCR_OFFSET);
+  /* dummy reading */
+  while (getreg32(CONSOLE_BASE+LPC17_UART_LSR_OFFSET) & UART_LSR_RDR) {
+    regval = getreg32(CONSOLE_BASE+LPC17_UART_RBR_OFFSET);
+  }
 
-  /* Set trigger */
+  /* waiting for any pending transmission complete */
+  putreg32(UART_TER_TXEN, CONSOLE_BASE+LPC17_UART_TER_OFFSET);
+  while (!(getreg32(CONSOLE_BASE+LPC17_UART_LSR_OFFSET) & UART_LSR_THRE)) ;
+  putreg32(0, CONSOLE_BASE+LPC17_UART_TER_OFFSET);
 
-  putreg32(UART_FCR_FIFOEN|UART_FCR_RXTRIGGER_8, CONSOLE_BASE+LPC17_UART_FCR_OFFSET);
+  /* disable interrupt */
+  putreg32(0, CONSOLE_BASE+LPC17_UART_IER_OFFSET);
 
-  /* Set up the LCR and set DLAB=1 */
+  /* put LCR, ACR to default state */
+  putreg32(0, CONSOLE_BASE+LPC17_UART_LCR_OFFSET);
+  putreg32(0, CONSOLE_BASE+LPC17_UART_ACR_OFFSET);
 
+  /* dummy reading */
+  regval = getreg32(CONSOLE_BASE+LPC17_UART_LSR_OFFSET);
+
+  /* baudrate calculation */
+  uint32_t dl, fdr;
+  dl = lpc17_uart_dl_fdr(CONSOLE_BAUD, cclkdiv, &fdr) & 0xffff;
+
+  /* setup the LCR and set DLAB=1 */
   putreg32(CONSOLE_LCR_VALUE|UART_LCR_DLAB, CONSOLE_BASE+LPC17_UART_LCR_OFFSET);
 
-  /* Set the BAUD divisor */
+  /* load the main divider */
+  putreg32(dl >> 8, CONSOLE_BASE+LPC17_UART_DLM_OFFSET);
+  putreg32(dl & 0xff, CONSOLE_BASE+LPC17_UART_DLL_OFFSET);
 
-  putreg32(CONSOLE_DL >> 8, CONSOLE_BASE+LPC17_UART_DLM_OFFSET);
-  putreg32(CONSOLE_DL & 0xff, CONSOLE_BASE+LPC17_UART_DLL_OFFSET);
-
-  /* Clear DLAB */
-
+  /* clear DLAB */
   putreg32(CONSOLE_LCR_VALUE, CONSOLE_BASE+LPC17_UART_LCR_OFFSET);
 
-  /* Configure the FIFOs */
+  /* setup fractional divider */
+  putreg32(fdr, CONSOLE_BASE+LPC17_UART_FDR_OFFSET);
 
+  /* set fifo trigger level */
+  putreg32(UART_FCR_FIFOEN|UART_FCR_RXTRIGGER_8, CONSOLE_BASE+LPC17_UART_FCR_OFFSET);
+
+  /* configure the fifo */
   putreg32(UART_FCR_RXTRIGGER_8|UART_FCR_TXRST|UART_FCR_RXRST|UART_FCR_FIFOEN,
            CONSOLE_BASE+LPC17_UART_FCR_OFFSET);
+
+  /* enable transmitter */
+  putreg32(UART_TER_TXEN, CONSOLE_BASE+LPC17_UART_TER_OFFSET);
+
 #endif
 #endif /* HAVE_UART */
 }
