@@ -181,11 +181,12 @@
 #define GPIO_UART2_TXD
 #define GPIO_UART2_RXD
 #define GPIO_UART1_TXD
-#define GPIO_SSP0_SCK 
 #define GPIO_UART1_RXD
+
 #define GPIO_SSP0_SSEL
-#define GPIO_SSP0_MISO
-#define GPIO_SSP0_MOSI
+#define GPIO_SSP0_SCK       GPIO_SSP0_SCK_1     /* P0[15] */
+#define GPIO_SSP0_MISO      GPIO_SSP0_MISO_1    /* P0[17] */
+#define GPIO_SSP0_MOSI      GPIO_SSP0_MOSI_1    /* P0[18] */
 
 /* P1[0]/ENET-TXD0                   J6-34?  TXD0            TX-(Ethernet PHY)
  * P1[1]/ENET_TXD1                   J6-35?  TXD1            TX+(Ethernet PHY)

@@ -1,6 +1,6 @@
 /************************************************************************************
- * configs/lpcxpresso-lpc1768/src/lpcxpresso_internal.h
- * arch/arm/src/board/lpcxpresso_internal.n
+ * configs/andciv-v3/src/andciv_internal.h
+ * arch/arm/src/board/andciv_internal.n
  *
  *   Copyright (C) 2011 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
@@ -81,9 +81,6 @@
  * P0[30]/USB_D-                     J6-36                   USB_D-
  */
 
-#define LPCXPRESSO_I2C1_EPROM_SDA GPIO_I2C1_SDA_1
-#define LPCXPRESSO_I2C1_EPROM_SDL GPIO_I2C1_SCL_2
-#define LPCXPRESSO_LED (GPIO_OUTPUT | GPIO_VALUE_ZERO | GPIO_PORT0 | GPIO_PIN22)
 
 /* P1[0]/ENET-TXD0                   J6-34?  TXD0            TX-(Ethernet PHY)
  * P1[1]/ENET_TXD1                   J6-35?  TXD1            TX+(Ethernet PHY)
@@ -126,8 +123,6 @@
  * P2[13]/EINT3/I2STX_SDA            J6-27                 
  */
 
-#define LPCXPRESSO_USB_PULLUP (GPIO_OUTPUT | GPIO_VALUE_ZERO | GPIO_PORT2 | GPIO_PIN9)
-
 /* P3[25]/MAT0.0/PWM1.2              PAD13                   N/A
  * P3[26]/STCLK/MAT0.1/PWM1.3        PAD14                   N/A
  *
@@ -137,24 +132,24 @@
  
 /* SD Slot
  *
- *      Base-board  J4/J6 LPC1768
- * SD   Signal      Pin   Pin
- * ---  ----------- ----- --------
- * CS   PIO1_11*     55   P2.2        (See LPCXPRESSO_SD_CS)
- * DIN  PIO0_9-MOSI   5   P0.9 MOSI1  (See GPIO_SSP1_MOSI in chip/lpc17_ssp.h)
- * DOUT PIO0_8-MISO   6   P0.8 MISO1  (See GPIO_SSP1_MISO in chip/lpc17_ssp.h)
- * CLK  PIO2_11-SCK   7   P0.9 SCK1   (See GPIO_SSP1_SCK in board.h)
- * CD   PIO2_10      52   P2.11       (See LPCXPRESSO_SD_CD)
+ *      LPC1758
+ * SD   Pin
+ * ---  --------
+ * CS   P0[16]/RXD1/SSEL0/SSEL
+ * DIN  P0[18]/DCD1/MOSI0/MOSI
+ * DOUT P0[17]/CTS1/MISO0/MISO
+ * CLK  P0[15]/TXD1/SCK0/SCK
+ * CD   P0[26]/AD0[3]/AOUT/RXD3
  */
 
-#define LPCXPRESSO_SD_CS (GPIO_OUTPUT | GPIO_VALUE_ONE | GPIO_PORT2 | GPIO_PIN2)
+#define ANDCIV_SD_CS    (GPIO_OUTPUT | GPIO_VALUE_ONE | GPIO_PORT0 | GPIO_PIN16)
 #ifdef CONFIG_GPIO_IRQ
-#  define LPCXPRESSO_SD_CD (GPIO_INTBOTH | GPIO_PULLUP | GPIO_PORT2 | GPIO_PIN11)
+#  define ANDCIV_SD_CD  (GPIO_INTBOTH | GPIO_PULLUP | GPIO_PORT0 | GPIO_PIN26)
 #else
-#  define LPCXPRESSO_SD_CD (GPIO_INPUT   | GPIO_PULLUP | GPIO_PORT2 | GPIO_PIN11)
+#  define ANDCIV_SD_CD  (GPIO_INPUT   | GPIO_PULLUP | GPIO_PORT0 | GPIO_PIN26)
 #endif
 
-/* USB:
+/* USB: not ready yet
  *
  *   Base-board          J4/J6 LPC1768
  *   Signal              Pin   Pin
@@ -222,14 +217,14 @@
  ************************************************************************************/
 
 /************************************************************************************
- * Name: lpcxpresso_sspinitialize
+ * Name: andciv_sspinitialize
  *
  * Description:
  *   Called to configure SPI chip select GPIO pins for the LPCXpresso board.
  *
  ************************************************************************************/
 
-void weak_function lpcxpresso_sspinitialize(void);
+void weak_function andciv_sspinitialize(void);
 
 #endif /* __ASSEMBLY__ */
 #endif /* _CONFIGS_LPCXPRESSO_LPC1768_SRC_LPCXPRESSO_INTERNAL_H */

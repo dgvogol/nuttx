@@ -1,5 +1,5 @@
 /************************************************************************************
- * configs/lpcxpresso-lpc1768/src/up_ssp.c
+ * configs/andciv-v3/src/up_ssp.c
  * arch/arm/src/board/up_ssp.c
  *
  *   Copyright (C) 2011, 2013 Gregory Nutt. All rights reserved.
@@ -51,7 +51,7 @@
 #include "chip.h"
 #include "lpc17_gpio.h"
 #include "lpc17_ssp.h"
-#include "lpcxpresso_internal.h"
+#include "andciv_internal.h"
 
 #if defined(CONFIG_LPC17_SSP0) || defined(CONFIG_LPC17_SSP1)
 
@@ -94,37 +94,25 @@
  ************************************************************************************/
 
 /************************************************************************************
- * Name: lpcxpresso_sspinitialize
+ * Name: andciv_sspinitialize
  *
  * Description:
- *   Called to configure SPI chip select GPIO pins for the LPCXpresso.
+ *   Called to configure SPI chip select GPIO pins for the andciv v3 board.
  *
  ************************************************************************************/
 
-void weak_function lpcxpresso_sspinitialize(void)
+void weak_function andciv_sspinitialize(void)
 {
-  /* Configure the SPI-based microSD CS GPIO */
+  /* configure the spi based microsd chip select gpio */
+  ssp_dumpgpio("andciv_sspinitialize() entry");
 
-  ssp_dumpgpio("lpcxpresso_sspinitialize() Entry)");
-
-  /* Configure card detect and chip select for the SD slot.  NOTE:  Jumper J55 must
-   * be set correctly for the SD slot chip select.
-   */
-
-#ifdef CONFIG_LPC17_SSP1
-  (void)lpc17_configgpio(LPCXPRESSO_SD_CS);
-  (void)lpc17_configgpio(LPCXPRESSO_SD_CD);
-
-  /* Configure chip select for the OLED. For the SPI interface, insert jumpers in
-   * J42, J43, J45 pin1-2 and J46 pin 1-2.
-   */
-
-#ifdef CONFIG_NX_LCDDRIVER
-  (void)lpc17_configgpio(LPCXPRESSO_OLED_CS);
-#endif
+  /* configure card detect and chip select for the sd slot */
+#ifdef CONFIG_LPC17_SSP0
+  (void)lpc17_configgpio(ANDCIV_SD_CS);
+  (void)lpc17_configgpio(ANDCIV_SD_CD);
 #endif
 
-  ssp_dumpgpio("lpcxpresso_sspinitialize() Exit");
+  ssp_dumpgpio("andciv_sspinitialize() exit");
 }
 
 /************************************************************************************
@@ -153,60 +141,49 @@ void weak_function lpcxpresso_sspinitialize(void)
  ************************************************************************************/
 
 #ifdef CONFIG_LPC17_SSP0
-void  lpc17_ssp0select(FAR struct spi_dev_s *dev, enum spi_dev_e devid, bool selected)
+void lpc17_ssp0select(FAR struct spi_dev_s *dev, enum spi_dev_e devid, bool selected)
 {
-  sspdbg("devid: %d CS: %s\n", (int)devid, selected ? "assert" : "de-assert");
-  ssp_dumpgpio("lpc17_ssp0select() Entry");
+  sspdbg("devid: %d cs: %s\n", (int)devid, selected ? "assert" : "de-assert");
+  ssp_dumpgpio("lpc17_ssp0select() entry");
 
-#warning "Assert CS here (false)"
+  if (devid == SPIDEV_MMCSD)
+    {
+      /* assert/de-assert the chip select pin to the card */
+      (void)lpc17_gpiowrite(ANDCIV_SD_CS, !selected);
+    }
 
-  ssp_dumpgpio("lpc17_ssp0select() Exit");
+  ssp_dumpgpio("lpc17_ssp0select() exit");
 }
 
 uint8_t lpc17_ssp0status(FAR struct spi_dev_s *dev, enum spi_dev_e devid)
 {
-  sspdbg("Returning SPI_STATUS_PRESENT\n");
-  return SPI_STATUS_PRESENT;
+  if (devid == SPIDEV_MMCSD)
+    {
+      /* read the state of the card-detect bit */
+      if (lpc17_gpioread(ANDCIV_SD_CD) == 0)
+        {
+          sspdbg("lpc17_ssp0_status() returning SPI_STATUS_PRESENT\n");
+          return SPI_STATUS_PRESENT;
+        }
+    }
+
+  sspdbg("lpc17_ssp0_status() returning zero\n");
+  return 0;
 }
 #endif
 
 #ifdef CONFIG_LPC17_SSP1
 void  lpc17_ssp1select(FAR struct spi_dev_s *dev, enum spi_dev_e devid, bool selected)
 {
-  sspdbg("devid: %d CS: %s\n", (int)devid, selected ? "assert" : "de-assert");
-  ssp_dumpgpio("lpc17_ssp1select() Entry");
+  sspdbg("devid: %d cs: %s\n", (int)devid, selected ? "assert" : "de-assert");
+  ssp_dumpgpio("lpc17_ssp1select() entry");
 
-  if (devid == SPIDEV_MMCSD)
-    {
-      /* Assert/de-assert the CS pin to the card */
-
-      (void)lpc17_gpiowrite(LPCXPRESSO_SD_CS, !selected);
-    }
-#ifdef CONFIG_NX_LCDDRIVER
-  else if (devid == SPIDEV_DISPLAY)
-    {
-      /* Assert the CS pin to the OLED display */
-
-      (void)lpc17_gpiowrite(LPCXPRESSO_OLED_CS, !selected);
-    }
-#endif
-  ssp_dumpgpio("lpc17_ssp1select() Exit");
+  ssp_dumpgpio("lpc17_ssp1select() exit");
 }
 
 uint8_t lpc17_ssp1status(FAR struct spi_dev_s *dev, enum spi_dev_e devid)
 {
-  if (devid == SPIDEV_MMCSD)
-    {
-      /* Read the state of the card-detect bit */
-
-      if (lpc17_gpioread(LPCXPRESSO_SD_CD) == 0)
-        {
-          sspdbg("Returning SPI_STATUS_PRESENT\n");
-          return SPI_STATUS_PRESENT;
-        }
-    }
-
-  sspdbg("Returning zero\n");
+  sspdbg("lpc17_ssp1status() returning 0\n");
   return 0;
 }
 #endif

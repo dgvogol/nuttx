@@ -50,7 +50,7 @@
 
 #include "lpc17_gpio.h"
 #include "lpc17_ssp.h"
-#include "lpcxpresso_internal.h"
+#include "andciv_internal.h"
 
 /****************************************************************************
  * Pre-Processor Definitions

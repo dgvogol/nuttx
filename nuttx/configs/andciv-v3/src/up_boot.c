@@ -48,7 +48,7 @@
 #include "up_internal.h"
 
 #include "lpc17_ssp.h"
-#include "lpcxpresso_internal.h"
+#include "andciv_internal.h"
 
 /************************************************************************************
  * Definitions
@@ -74,19 +74,18 @@
 
 void lpc17_boardinitialize(void)
 {
-  /* Configure SSP chip selects if 1) at least one SSP is enabled, and 2) the weak
-   * function lpcxpresso_sspinitialize() has been brought into the link.
+  /* configure ssp chip selects if:
+   *   1) at least one SSP is enabled, and
+   *   2) the weak function andciv_sspinitialize() has been brought into the link.
    */
-
 #if defined(CONFIG_LPC17_SSP0) || defined(CONFIG_LPC17_SSP1)
-  if (lpcxpresso_sspinitialize)
+  if (andciv_sspinitialize)
     {
-      lpcxpresso_sspinitialize();
+      andciv_sspinitialize();
     }
 #endif
 
-  /* Configure on-board LEDs if LED support has been selected. */
-
+  /* configure on-board LEDs if LED support has been selected (no on board LED at all) */
 #ifdef CONFIG_ARCH_LEDS
   up_ledinit();
 #endif

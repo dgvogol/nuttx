@@ -47,14 +47,13 @@
 #include <nuttx/spi/spi.h>
 #include <nuttx/mmcsd.h>
 
+#include "lpc17_ssp.h"
+
 /****************************************************************************
  * Pre-Processor Definitions
  ****************************************************************************/
 
-/* Configuration ************************************************************/
-
-/* PORT and SLOT number probably depend on the board configuration */
-
+/* configuration ************************************************************/
 #ifdef CONFIG_ARCH_BOARD_LPCXPRESSO
 #  define NSH_HAVEUSBDEV 1
 #  ifdef CONFIG_LPC17_SSP1
@@ -64,36 +63,26 @@
 #  endif
 #elif CONFIG_ARCH_BOARD_ANDCIV_V3
 #  undef NSH_HAVEUSBDEV
-#  undef NSH_HAVEMMCSD
+#  ifdef CONFIG_LPC17_SSP0
+#    define NSH_HAVEMMCSD 1
+#  endif
 #else
 #  error "Unrecognized board"
 #  undef NSH_HAVEUSBDEV
 #  undef NSH_HAVEMMCSD
 #endif
 
-/* Do we have SPI support for MMC/SD? */
-
-#ifdef NSH_HAVEMMCSD
-#  if !defined(CONFIG_NSH_MMCSDSPIPORTNO) || CONFIG_NSH_MMCSDSPIPORTNO != 1
-#    error "The LPCXpresso MMC/SD is on SSP1"
-#    undef CONFIG_NSH_MMCSDSPIPORTNO
-#    define CONFIG_NSH_MMCSDSPIPORTNO 1
-#  endif
-#  if !defined(CONFIG_NSH_MMCSDSLOTNO) || CONFIG_NSH_MMCSDSLOTNO != 0
-#    error "The LPCXpresso MMC/SD has only one slot (0)"
-#    undef CONFIG_NSH_MMCSDSLOTNO
-#    define CONFIG_NSH_MMCSDSLOTNO 0
-#  endif
+/* spi support for mmc/sd */
+#ifndef CONFIG_NSH_MMCSDSPIPORTNO
+  #define CONFIG_NSH_MMCSDSPIPORTNO 0
 #endif
 
-/* Can't support USB device features if USB device is not enabled */
-
+/* can't support usb device features if usb device is not enabled */
 #ifndef CONFIG_USBDEV
 #  undef NSH_HAVEUSBDEV
 #endif
 
-/* Can't support MMC/SD features if mountpoints are disabled */
-
+/* can't support mmc/sd features if mountpoints are disabled */
 #if defined(CONFIG_DISABLE_MOUNTPOINT)
 #  undef NSH_HAVEMMCSD
 #endif
@@ -102,8 +91,7 @@
 #  define CONFIG_NSH_MMCSDMINOR 0
 #endif
 
-/* Debug ********************************************************************/
-
+/* debug support ********************************************************************/
 #ifdef CONFIG_CPP_HAVE_VARARGS
 #  ifdef CONFIG_DEBUG
 #    define message(...) lowsyslog(__VA_ARGS__)
@@ -137,37 +125,34 @@
  *   Perform architecture specific initialization
  *
  ****************************************************************************/
-
 int nsh_archinitialize(void)
 {
 #ifdef NSH_HAVEMMCSD
   FAR struct spi_dev_s *ssp;
   int ret;
 
-  /* Get the SSP port */
-
+  /* get the ssp port */
   ssp = lpc17_sspinitialize(CONFIG_NSH_MMCSDSPIPORTNO);
   if (!ssp)
     {
-      message("nsh_archinitialize: Failed to initialize SSP port %d\n",
+      message("nsh_archinitialize: failed to initialize ssp port %d\n",
               CONFIG_NSH_MMCSDSPIPORTNO);
       return -ENODEV;
     }
 
-  message("Successfully initialized SSP port %d\n",
+  message("successfully initialized ssp port %d\n",
           CONFIG_NSH_MMCSDSPIPORTNO);
 
-  /* Bind the SSP port to the slot */
-
+  /* bind the ssp port to the slot */
   ret = mmcsd_spislotinitialize(CONFIG_NSH_MMCSDMINOR, CONFIG_NSH_MMCSDSLOTNO, ssp);
   if (ret < 0)
     {
-      message("nsh_archinitialize: Failed to bind SSP port %d to MMC/SD slot %d: %d\n",
+      message("nsh_archinitialize: failed to bind ssp port %d to mmc/sd slot %d: rc = %d\n",
               CONFIG_NSH_MMCSDSPIPORTNO, CONFIG_NSH_MMCSDSLOTNO, ret);
       return ret;
     }
 
-  message("Successfuly bound SSP port %d to MMC/SD slot %d\n",
+  message("successfuly bound ssp port %d to mmc/sd slot %d\n",
           CONFIG_NSH_MMCSDSPIPORTNO, CONFIG_NSH_MMCSDSLOTNO);
 #endif
   return OK;
