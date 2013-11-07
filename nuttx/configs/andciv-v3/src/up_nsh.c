@@ -46,6 +46,7 @@
 
 #include <nuttx/spi/spi.h>
 #include <nuttx/mmcsd.h>
+#include <nuttx/usb/cdcacm.h>
 
 #include "lpc17_ssp.h"
 
@@ -62,7 +63,7 @@
 #    undef NSH_HAVEMMCSD
 #  endif
 #elif CONFIG_ARCH_BOARD_ANDCIV_V3
-#  undef NSH_HAVEUSBDEV
+#  define NSH_HAVEUSBDEV 1
 #  ifdef CONFIG_LPC17_SSP0
 #    define NSH_HAVEMMCSD 1
 #  endif
@@ -89,6 +90,10 @@
 
 #ifndef CONFIG_NSH_MMCSDMINOR
 #  define CONFIG_NSH_MMCSDMINOR 0
+#endif
+
+#ifndef CONFIG_NSH_USBDEV_MINOR
+#  define CONFIG_NSH_USBDEV_MINOR 0
 #endif
 
 /* debug support ********************************************************************/
@@ -155,5 +160,10 @@ int nsh_archinitialize(void)
   message("successfuly bound ssp port %d to mmc/sd slot %d\n",
           CONFIG_NSH_MMCSDSPIPORTNO, CONFIG_NSH_MMCSDSLOTNO);
 #endif
+
+#if defined(NSH_HAVEUSBDEV) && defined(CONFIG_CDCACM)
+  cdcacm_initialize(CONFIG_NSH_USBDEV_MINOR, NULL);
+#endif
+
   return OK;
 }
