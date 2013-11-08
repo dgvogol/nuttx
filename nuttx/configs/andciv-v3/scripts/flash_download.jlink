@@ -1,0 +1,7 @@
+exec device = lpc1758
+speed auto
+halt
+loadbin nuttx.bin,0x00010000
+reset
+go
+exit
