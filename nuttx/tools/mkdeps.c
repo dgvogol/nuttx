@@ -433,6 +433,9 @@ static void do_dependency(const char *file, char separator)
 
   if (g_objpath)
     {
+#ifndef NAME_MAX
+#define NAME_MAX 255
+#endif
       char tmp[NAME_MAX+6];
       char *dupname;
       char *objname;
