@@ -77,7 +77,7 @@
 #ifndef CONFIG_ARMV7M_CMNVECTOR
 
 	.globl		__start
-#ifdef CONFIG_ANDCIV_INIT_SP
+#ifdef CONFIG_LPC17_INIT_SP
 	.globl		__start_0
 #endif
 
@@ -113,7 +113,7 @@ lpc17_vectors:
 /* Processor Exceptions */
 
 	.word	IDLE_STACK			/* Vector  0: Reset stack pointer */
-#ifdef CONFIG_ANDCIV_INIT_SP
+#ifdef CONFIG_LPC17_INIT_SP
 	.word	__start_0		    /* Vector  1: Reset vector */
 #else
 	.word	__start				/* Vector  1: Reset vector */
@@ -156,7 +156,7 @@ lpc17_vectors:
  ************************************************************************************************/
 
 	.text
-#ifdef CONFIG_ANDCIV_INIT_SP
+#ifdef CONFIG_LPC17_INIT_SP
 	.type   __start_0, function
 	.thumb_func
 __start_0:

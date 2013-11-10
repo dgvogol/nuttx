@@ -112,6 +112,11 @@ config ARCH_FAMILY_LPC178X
 config ARCH_HAVE_SPIFI
 	bool
 
+config LPC17_INIT_SP
+	bool "Initial stack pointer setup"
+	default n
+	depends on !ARMV7M_CMNVECTOR
+
 menu "LPC17xx Peripheral Support"
 
 config LPC17_MAINOSC
