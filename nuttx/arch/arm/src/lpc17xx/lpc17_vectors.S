@@ -77,6 +77,9 @@
 #ifndef CONFIG_ARMV7M_CMNVECTOR
 
 	.globl		__start
+#ifdef CONFIG_LPC17_INIT_SP
+	.globl		__start_0
+#endif
 
 /************************************************************************************************
  * Macros
@@ -110,7 +113,11 @@ lpc17_vectors:
 /* Processor Exceptions */
 
 	.word	IDLE_STACK			/* Vector  0: Reset stack pointer */
+#ifdef CONFIG_LPC17_INIT_SP
+	.word	__start_0		    /* Vector  1: Reset vector */
+#else
 	.word	__start				/* Vector  1: Reset vector */
+#endif
 	.word	lpc17_nmi			/* Vector  2: Non-Maskable Interrupt (NMI) */
 	.word	lpc17_hardfault		/* Vector  3: Hard fault */
 	.word	lpc17_mpu			/* Vector  4: Memory management (MPU) */
@@ -149,6 +156,16 @@ lpc17_vectors:
  ************************************************************************************************/
 
 	.text
+#ifdef CONFIG_LPC17_INIT_SP
+	.type   __start_0, function
+	.thumb_func
+__start_0:
+	ldr r0, =IDLE_STACK
+	msr psp, r0
+	msr msp, r0
+	b   __start
+#endif
+
 	.type	handlers, function
 	.thumb_func
 handlers:
