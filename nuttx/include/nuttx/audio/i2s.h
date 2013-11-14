@@ -46,6 +46,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include <nuttx/audio/audio.h>
+
 #ifdef CONFIG_I2S
 
 /****************************************************************************
@@ -99,9 +101,7 @@
  *
  * Input Parameters:
  *   dev      - Device-specific state data
- *   buffer   - A pointer to the buffer in which to recieve data
- *   nbytes   - The length of data that can be received in the buffer in number
- *              of bytes.
+ *   apb      - A pointer to the audio buffer in which to recieve data
  *   callback - A user provided callback function that will be called at
  *              the completion of the transfer.  The callback will be
  *              performed in the context of the worker thread.
@@ -123,7 +123,7 @@
  *
  ****************************************************************************/
 
-#define I2S_RECEIVE(d,b,n,c,a,t) ((d)->ops->i2s_receive(d,b,n,c,a,t))
+#define I2S_RECEIVE(d,b,c,a,t) ((d)->ops->i2s_receive(d,b,c,a,t))
 
 /****************************************************************************
  * Name: I2S_TXSAMPLERATE
@@ -170,9 +170,8 @@
  *   Send a block of data on I2S.
  *
  * Input Parameters:
- *   dev    - Device-specific state data
- *   buffer - A pointer to the buffer of data to be sent
- *   nbytes - the length of data to send from the buffer in number of bytes.
+ *   dev      - Device-specific state data
+ *   apb      - A pointer to the audio buffer from which to send data
  *   callback - A user provided callback function that will be called at
  *              the completion of the transfer.  The callback will be
  *              performed in the context of the worker thread.
@@ -194,36 +193,36 @@
  *
  ****************************************************************************/
 
-#define I2S_SEND(d,b,n,c,a,t) ((d)->ops->i2s_send(d,b,n,c,a,t))
+#define I2S_SEND(d,b,c,a,t) ((d)->ops->i2s_send(d,b,c,a,t))
 
 /****************************************************************************
  * Public Types
  ****************************************************************************/
-/* Transfer complete callback */
-
-typedef CODE void (*i2s_callback_t)(FAR struct i2s_dev_s *dev,
-                                    FAR const void *buffer, size_t nbytes,
-                                    FAR void *arg, int result);
-/* The I2S vtable */
+/* Transfer complete callbacks */
 
 struct i2s_dev_s;
+typedef CODE void (*i2s_callback_t)(FAR struct i2s_dev_s *dev,
+                  FAR struct ap_buffer_s *apb, FAR void *arg, int result);
+
+/* The I2S vtable */
+
 struct i2s_ops_s
 {
   /* Receiver methods */
 
-  uint32_t (*i2s_rxsamplerate)(FAR struct i2s_dev_s *dev, uint32_t rate);
-  uint32_t (*i2s_rxdatawidth)(FAR struct i2s_dev_s *dev, int bits);
-  int      (*i2s_receive)(FAR struct i2s_dev_s *dev, FAR void *buffer,
-             size_t nbytes, i2s_callback_t callback, FAR void *arg,
-             uint32_t timeout);
+  CODE uint32_t (*i2s_rxsamplerate)(FAR struct i2s_dev_s *dev, uint32_t rate);
+  CODE uint32_t (*i2s_rxdatawidth)(FAR struct i2s_dev_s *dev, int bits);
+  CODE int      (*i2s_receive)(FAR struct i2s_dev_s *dev,
+                  FAR struct ap_buffer_s *apb, i2s_callback_t callback,
+                  FAR void *arg, uint32_t timeout);
 
   /* Transmitter methods */
 
-  uint32_t (*i2s_txsamplerate)(FAR struct i2s_dev_s *dev, uint32_t rate);
-  uint32_t (*i2s_txdatawidth)(FAR struct i2s_dev_s *dev, int bits);
-  int      (*i2s_send)(FAR struct i2s_dev_s *dev, FAR const void *buffer,
-             size_t nbytes, i2s_callback_t callback, FAR void *arg,
-             uint32_t timeout);
+  CODE uint32_t (*i2s_txsamplerate)(FAR struct i2s_dev_s *dev, uint32_t rate);
+  CODE uint32_t (*i2s_txdatawidth)(FAR struct i2s_dev_s *dev, int bits);
+  CODE int      (*i2s_send)(FAR struct i2s_dev_s *dev,
+                  FAR struct ap_buffer_s *apb, i2s_callback_t callback,
+                  FAR void *arg, uint32_t timeout);
 };
 
 /* I2S private data.  This structure only defines the initial fields of the
@@ -252,6 +251,31 @@ extern "C"
 /****************************************************************************
  * Public Functions
  ****************************************************************************/
+
+/****************************************************************************
+ * Name: i2schar_register
+ *
+ * Description:
+ *   Create and register the I2S character driver.
+ *
+ *   The I2S character driver is a simple character driver that supports I2S
+ *   transfers via a read() and write().  The intent of this driver is to
+ *   support I2S testing.  It is not an audio driver but does conform to some
+ *   of the buffer management heuristics of an audio driver.  It is not
+ *   suitable for use in any real driver application in its current form.
+ *
+ * Input Parameters:
+ *   i2s - An instance of the lower half I2S driver
+ *   minor - The device minor number.  The I2S character device will be
+ *     registers as /dev/i2scharN where N is the minor number
+ *
+ * Returned Value:
+ *   OK if the driver was successfully register; A negated errno value is
+ *   returned on any failure.
+ *
+ ****************************************************************************/
+
+int i2schar_register(FAR struct i2s_dev_s *i2s, int minor);
 
 #undef EXTERN
 #if defined(__cplusplus)

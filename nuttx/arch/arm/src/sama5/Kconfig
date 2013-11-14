@@ -1392,12 +1392,6 @@ config SAMA5_SSC_MAXINFLIGHT
 if SAMA5_SSC0
 comment "SSC0 Configuration"
 
-config SAMA5_SSC0_MASTER
-	bool "Master mode"
-	default n
-	---help---
-		Selects master (vs. slave) mode data transfers
-
 config SAMA5_SSC0_DATALEN
 	int "Data width (bits)"
 	default 16
@@ -1418,30 +1412,24 @@ choice
 	default SAMA5_SSC0_RX_MCKDIV
 
 config SAMA5_SSC0_RX_RKINPUT
-	bool "External Clock"
+	bool "RK input"
 	---help---
 		The SSC receiver clock is an external clock provided on the RK input
-		pin.
+		pin.  Sample rate determined by the external clock frequency.
 
 config SAMA5_SSC0_RX_TXCLK
 	bool "Transmitter Clock"
 	---help---
-		The SSC receiver clock is transmitter clock.
+		The SSC receiver clock is transmitter clock.  RX sample rate is the same
+		as the TX sample rate.
 
 config SAMA5_SSC0_RX_MCKDIV
 	bool "MCK/2"
 	---help---
-		The SSC receiver clock is the MCK/2 divided by a up to 4095.
+		The SSC receiver clock is the MCK/2 divided by a up to 4095.  Desired
+		sample rate must be provided below.
 
 endchoice # Receiver clock source
-
-config SAMA5_SSC0_RX_EXTFREQ
-	int "External reciver clock frequency"
-	default 100
-	depends on SAMA5_SSC0_RX_RKINPUT
-	---help---
-		If the receiver clock is provided via a clock input on the RK pin,
-		then the frequency of the receiver clock must be provided.
 
 if !SAMA5_SSC0_RX_RKINPUT
 choice
@@ -1474,30 +1462,24 @@ choice
 	default SAMA5_SSC0_TX_MCKDIV
 
 config SAMA5_SSC0_TX_TKINPUT
-	bool "External Clock"
+	bool "TK input"
 	---help---
 		The SSC transmitter clock is an external clock provided on the TK input
-		pin.
+		pin.  Sample rate determined by the external clock frequency.
 
 config SAMA5_SSC0_TX_RXCLK
 	bool "Receiver Clock"
 	---help---
-		The SSC transmitter clock is receiver clock.
+		The SSC transmitter clock is receiver clock.  TX sample rate is the same
+		as the RX sample rate.
 
 config SAMA5_SSC0_TX_MCKDIV
 	bool "MCK/2"
 	---help---
-		The SSC transmitter clock is the MCK/2 divided by a up to 4095.
+		The SSC transmitter clock is the MCK/2 divided by a up to 4095.  Desired
+		sample rate must be provided below.
 
 endchoice # Transmitter clock source
-
-config SAMA5_SSC0_TX_EXTFREQ
-	int "External transmitter clock frequency"
-	default 100
-	depends on SAMA5_SSC0_TX_TKINPUT
-	---help---
-		If the transmitter clock is provided via a clock input on the TK pin,
-		then the frequency of the transmitter clock must be provided.
 
 if !SAMA5_SSC0_TX_TKINPUT
 choice
@@ -1518,8 +1500,8 @@ endif # !SAMA5_SSC0_TX_TKINPUT
 endif # SAMA5_SSC0_TX
 
 config SAMA5_SSC0_MCKDIV_SAMPLERATE
-	int "Internal transmitter clock frequency"
-	default 100
+	int "Sample rate"
+	default 48000
 	depends on SAMA5_SSC0_RX_MCKDIV || SAMA5_SSC0_TX_MCKDIV
 	---help---
 		If the either the receiver or transmitter clock is provided by MCK/2 divided
@@ -1528,16 +1510,21 @@ config SAMA5_SSC0_MCKDIV_SAMPLERATE
 		divider to obtain that bitrate (up to 4095).  If the bitrate can be realized
 		by dividing down the MCK/2, a compile time error will occur.
 
+config SAMA5_SSC0_LOOPBACK
+	bool "Loopback mode"
+	default n
+	depends on SAMA5_SSC0_TX && SAMA5_SSC0_RX
+	---help---
+		If both the receiver and transmitter are enabled, then the SSC can
+		be configured in loopback mode.  This setting selects SSC loopback
+		and will cause the LOOP bit to be set in the SSC_RFMR regsiter. In
+		this case, RD is connected to TD, RF is connected to TF and RK is
+		connected to TK.
+
 endif # SAMA5_SSC0
 
 if SAMA5_SSC1
 comment "SSC1 Configuration"
-
-config SAMA5_SSC1_MASTER
-	bool "Master mode"
-	default n
-	---help---
-		Selects master (vs. slave) mode data transfers
 
 config SAMA5_SSC1_DATALEN
 	int "Data width (bits)"
@@ -1559,30 +1546,24 @@ choice
 	default SAMA5_SSC1_RX_MCKDIV
 
 config SAMA5_SSC1_RX_RKINPUT
-	bool "External Clock"
+	bool "RK input"
 	---help---
 		The SSC receiver clock is an external clock provided on the RK input
-		pin.
+		pin.  Sample rate determined by the external clock frequency.
 
 config SAMA5_SSC1_RX_TXCLK
 	bool "Transmitter Clock"
 	---help---
-		The SSC receiver clock is transmitter clock.
+		The SSC receiver clock is transmitter clock.  RX sample rate is the same
+		as the TX sample rate.
 
 config SAMA5_SSC1_RX_MCKDIV
 	bool "MCK/2"
 	---help---
-		The SSC receiver clock is the MCK/2 divided by a up to 4095.
+		The SSC receiver clock is the MCK/2 divided by a up to 4095.  Desired
+		sample rate must be provided below.
 
 endchoice # Receiver clock source
-
-config SAMA5_SSC1_RX_EXTFREQ
-	int "External reciver clock frequency"
-	default 100
-	depends on SAMA5_SSC1_RX_RKINPUT
-	---help---
-		If the receiver clock is provided via a clock input on the RK pin,
-		then the frequency of the receiver clock must be provided.
 
 if !SAMA5_SSC1_RX_RKINPUT
 choice
@@ -1615,30 +1596,24 @@ choice
 	default SAMA5_SSC1_TX_MCKDIV
 
 config SAMA5_SSC1_TX_TKINPUT
-	bool "External Clock"
+	bool "TK input"
 	---help---
 		The SSC transmitter clock is an external clock provided on the TK input
-		pin.
+		pin.  Sample rate determined by the external clock frequency.
 
 config SAMA5_SSC1_TX_RXCLK
 	bool "Receiver Clock"
 	---help---
-		The SSC transmitter clock is receiver clock.
+		The SSC transmitter clock is receiver clock.  TX sample rate is the same
+		as the RX sample rate.
 
 config SAMA5_SSC1_TX_MCKDIV
 	bool "MCK/2"
 	---help---
-		The SSC transmitter clock is the MCK/2 divided by a up to 4095.
+		The SSC transmitter clock is the MCK/2 divided by a up to 4095.  Desired
+		sample rate must be provided below.
 
 endchoice # Transmitter clock source
-
-config SAMA5_SSC1_TX_EXTFREQ
-	int "External transmitter clock frequency"
-	default 100
-	depends on SAMA5_SSC1_TX_TKINPUT
-	---help---
-		If the transmitter clock is provided via a clock input on the TK pin,
-		then the frequency of the transmitter clock must be provided.
 
 if !SAMA5_SSC1_TX_TKINPUT
 choice
@@ -1659,8 +1634,8 @@ endif # !SAMA5_SSC1_TX_TKINPUT
 endif # SAMA5_SSC1_TX
 
 config SAMA5_SSC1_MCKDIV_SAMPLERATE
-	int "Internal transmitter clock frequency"
-	default 100
+	int "Sample rate"
+	default 48000
 	depends on SAMA5_SSC1_RX_MCKDIV || SAMA5_SSC1_TX_MCKDIV
 	---help---
 		If the either the receiver or transmitter clock is provided by MCK/2 divided
@@ -1668,6 +1643,17 @@ config SAMA5_SSC1_MCKDIV_SAMPLERATE
 		of the sample rate and the data width.  The SSC driver will determine the best
 		divider to obtain that bitrate (up to 4095).  If the bitrate can be realized
 		by dividing down the MCK/2, a compile time error will occur.
+
+config SAMA5_SSC1_LOOPBACK
+	bool "Loopback mode"
+	default n
+	depends on SAMA5_SSC1_TX && SAMA5_SSC1_RX
+	---help---
+		If both the receiver and transmitter are enabled, then the SSC can
+		be configured in loopback mode.  This setting selects SSC loopback
+		and will cause the LOOP bit to be set in the SSC_RFMR regsiter. In
+		this case, RD is connected to TD, RF is connected to TF and RK is
+		connected to TK.
 
 endif # SAMA5_SSC1
 
@@ -1688,6 +1674,20 @@ config SAMA5_SSC_REGDEBUG
 	---help---
 		Output detailed register-level SSC device debug information.
 		Very invasive! Requires also DEBUG.
+
+config SAMA5_SSC_QDEBUG
+	bool "SSC Queue debug"
+	depends on DEBUG_I2S
+	default n
+	---help---
+		Enable instrumentation to debug audio buffer queue logic.
+
+config SAMA5_SSC_DUMPBUFFERS
+	bool "Dump Buffers"
+	depends on DEBUG_I2S
+	default n
+	---help---
+		Enable instrumentation to dump TX and RX buffers.
 
 endmenu # SSC Configuration
 endif # SAMA5_SSC0 || SAMA5_SSC1

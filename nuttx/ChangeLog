@@ -6001,4 +6001,45 @@
 	  configuration for the Spark.  From David Sidran (2013-11-7).
 	* arch/arm/src/sama5/sam_ssc.c and .h:  First cut of SAMA5
 	  SSC/I2S driver is code complete (2013-11-9).
+	* arch/arm/src/stm32 (numerous files):  OTG FS device and host
+	  drivers extended so that they can support either the OTG FS
+	  peripheral or the OTG HS peripheral (in FS mode).  This was
+	  done as a quick way to get USB support on the STM32F429 which
+	  has only OTG HS.  From Ken Pettit (2013-11-10).
+	* configs/stm32f429i-disco:  Add support for the usbnsh and
+	  usbmsc configurations using the OTG HS peripheral in FS mode.
+	  From Ken Pettit (2013-11-10)
+	* drivers/audio/i2schar.c:  A simple character driver to support I2S
+	  accesses.  This driver in its current state is intended only to
+	  support I2C testing and would not be appropriate to used for any real
+	  driver application. (2013-11-10).
+	* arch/arm/src/kl/kl_pwm.c and .h:  PWM driver for the Freescale
+	  Kinetis KL family from Alan Carvalho de Assis (2013-11-10).
+	* configs/freedom-kl25z:  Add PWM support.  From Alan Carvalho de Assis
+	  (2013-11-10).
+	* drivers/audio/vs1053:  VS1053 worker thread stack size is now
+	  configurable and assigned a name via pthread_setname_np(). From Ken
+	  Pettit (2013-11-10).
+	* libc/audio/lib_buffer.c:  Moved audio/buffer/c to libc/audio/lib_buffer.c.
+	  This file was moved because it contains buffer management functions
+	  that must be available to audio applications.  If it was left in the
+	  audio/ directory then it would not be available to applications in the
+	  NuttX Kernel build (2013-11-10).
+	* arch/arm/src/sama5/sam_ssc.c and Kconfig:  Add configurable support
+	  for SSC loopback mode (2013-11-10).
+	* include/nuttx/audio/i2s.h, arch/arm/src/sama5/sam_ssc.c, and
+	  drivers/audio/i2schar.c:  Improvied I2S interface design:  Simplified
+	  audio buffer queuing (2013-11-10).
+	* arch/arm/src/sam34 and arch/arm/include/sam34:  Basic support for
+	  the Atmal SAM4E family.  From Mitko (2013-11-11).
+	* libc/audio/lib_buffer.c:  Remove unused apb_prepare() function
+	  (2013-11-11).
+	* arch/arm/src/stm32:  Added header files and driver framework for the
+	  STM32F429 LTDC framebuffer driver.  From Ken Pettit (2013-11-11).
+	* configs/sama5d3x-ek/src/sam_i2schar.c: Add support for the
+	  apps/examples/i2schar test (2011-11-11).
+	* arch/arm/src/sama5/sam_ssc.c:  I2S loopback test finally works
+	  (2013-11-11).
+	* fs/procfs:  Add a little, primitive procfs file system. (2013-11-13).
+	* fs/binfs/README.txt:  Add a README file for binfs (2013-11-13).
 
