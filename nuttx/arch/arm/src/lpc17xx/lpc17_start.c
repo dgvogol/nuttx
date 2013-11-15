@@ -189,8 +189,11 @@ static inline void lpc17_fpuconfig(void)
  *   This is the reset entry point.
  *
  ****************************************************************************/
-
+#ifdef CONFIG_LPC17_INIT_SP
+void ___start(void)
+#else
 void __start(void)
+#endif
 {
   const uint32_t *src;
   uint32_t *dest;
@@ -259,3 +262,31 @@ void __start(void)
 
   for(;;);
 }
+
+#ifdef CONFIG_LPC17_INIT_SP
+/****************************************************************************
+ * Name: __start
+ *
+ * Description:
+ *   This is the reset entry point.
+ * 
+ * Notes:
+ *   If the stack pointer initialization is requested right after the
+ *   chip reset, we should do it here, and then pass control to the
+ *   original __start (renamed as ___start)
+ *
+ ****************************************************************************/
+void __start(void) __attribute__ ((naked,no_instrument_function,noreturn));
+void __start(void)
+{
+  __asm__ __volatile__ (
+    "  .globl    _vectors\n"
+    "  ldr       r0, =_vectors\n"
+    "  ldr       r0, [r0]\n"
+    "  msr       msp, r0\n"
+    "  b         ___start\n"
+  );
+  for (;;) ;
+}
+#endif
+
