@@ -185,6 +185,12 @@ fi
 echo "ARCHCFLAGS = ${ARCHCFLAGS}" >"${EXPORTDIR}/build/Make.defs"
 echo "ARCHCXXFLAGS = ${ARCHCXXFLAGS}" >>"${EXPORTDIR}/build/Make.defs"
 
+# Copy the .config file used in the "make export"
+if [ -f "${TOPDIR}/.config" ]; then
+	cp -fp "${TOPDIR}/.config" "${EXPORTDIR}/build/nuttx.export.config" || \
+		{ echo "MK: cp ${TOPDIR}/.config failed"; exit 1; }
+fi
+
 # Copy the NuttX include directory (retaining attributes and following symbolic links)
 
 cp -LR -p "${TOPDIR}/include" "${EXPORTDIR}/." || \
