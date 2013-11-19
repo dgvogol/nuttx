@@ -1,7 +1,7 @@
 ############################################################################
-# configs/ea3131/nsh/appconfig
+# configs/olimex-lpc-h3131/src/Makefile
 #
-#   Copyright (C) 2011-2012 Gregory Nutt. All rights reserved.
+#   Copyright (C) 2013 Gregory Nutt. All rights reserved.
 #   Author: Gregory Nutt <gnutt@nuttx.org>
 #
 # Redistribution and use in source and binary forms, with or without
@@ -33,12 +33,68 @@
 #
 ############################################################################
 
-# Path to example in apps/examples containing the user_start entry point
+-include $(TOPDIR)/Make.defs
 
-CONFIGURED_APPS += examples/nsh
+CFLAGS += -I$(TOPDIR)/sched
 
-# The NSH library
+ASRCS =
+AOBJS = $(ASRCS:.S=$(OBJEXT))
 
-CONFIGURED_APPS += system/readline
-CONFIGURED_APPS += nshlib
+CSRCS = lpc31_boot.c lpc31_clkinit.c
 
+ifeq ($(CONFIG_ARCH_LEDS),y)
+CSRCS += lpc31_leds.c
+endif
+
+ifeq ($(CONFIG_LPC31_SPI),y)
+CSRCS += lpc31_spi.c
+endif
+
+ifeq ($(CONFIG_NSH_ARCHINIT),y)
+CSRCS += lpc31_nsh.c
+endif
+
+ifeq ($(CONFIG_LPC31_USBOTG),y)
+ifeq ($(CONFIG_USBHOST),y)
+CSRCS += lpc31_usbhost.c
+endif
+endif
+
+COBJS = $(CSRCS:.c=$(OBJEXT))
+
+SRCS = $(ASRCS) $(CSRCS)
+OBJS = $(AOBJS) $(COBJS)
+
+ARCH_SRCDIR = $(TOPDIR)/arch/$(CONFIG_ARCH)/src
+ifeq ($(WINTOOL),y)
+  CFLAGS += -I "${shell cygpath -w $(ARCH_SRCDIR)/chip}" -I "${shell cygpath -w $(ARCH_SRCDIR)/common}" -I "${shell cygpath -w $(ARCH_SRCDIR)/arm}"
+else
+  CFLAGS += -I$(ARCH_SRCDIR)/chip -I$(ARCH_SRCDIR)/common -I$(ARCH_SRCDIR)/arm
+endif
+
+all: libboard$(LIBEXT)
+
+$(AOBJS): %$(OBJEXT): %.S
+	$(call ASSEMBLE, $<, $@)
+
+$(COBJS) $(LINKOBJS): %$(OBJEXT): %.c
+	$(call COMPILE, $<, $@)
+
+libboard$(LIBEXT): $(OBJS)
+	$(call ARCHIVE, $@, $(OBJS))
+
+.depend: Makefile $(SRCS)
+	$(Q) $(MKDEP) $(CC) -- $(CFLAGS) -- $(SRCS) >Make.dep
+	$(Q) touch $@
+
+depend: .depend
+
+clean:
+	$(call DELFILE, libboard$(LIBEXT))
+	$(call CLEAN)
+
+distclean: clean
+	$(call DELFILE, Make.dep)
+	$(call DELFILE, .depend)
+
+-include Make.dep

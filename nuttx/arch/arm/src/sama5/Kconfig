@@ -57,12 +57,14 @@ config ARCH_CHIP_ATSAMA5D31
 	select SAMA5_HAVE_LCDC
 	select SAMA5_HAVE_UART0
 	select SAMA5_HAVE_UART1
+	select ARCH_NAND_HWECC
 
 config ARCH_CHIP_ATSAMA5D33
 	bool "Atmel ATSAMA5D33"
 	select ARCH_CHIP_SAMA5D3
 	select SAMA5_HAVE_GMAC
 	select SAMA5_HAVE_LCDC
+	select ARCH_NAND_HWECC
 
 config ARCH_CHIP_ATSAMA5D34
 	bool "Atmel ATSAMA5D34"
@@ -72,6 +74,7 @@ config ARCH_CHIP_ATSAMA5D34
 	select SAMA5_HAVE_LCDC
 	select SAMA5_HAVE_CAN0
 	select SAMA5_HAVE_CAN1
+	select ARCH_NAND_HWECC
 
 config ARCH_CHIP_ATSAMA5D35
 	bool "Atmel ATSAMA5D35"
@@ -84,6 +87,7 @@ config ARCH_CHIP_ATSAMA5D35
 	select SAMA5_HAVE_CAN0
 	select SAMA5_HAVE_CAN1
 	select SAMA5_HAVE_TC1
+	select ARCH_NAND_HWECC
 
 endchoice # Atmel AT91SAMA5 Chip Selection
 
@@ -3033,8 +3037,32 @@ config SAMA5_EBICS0_NOR
 
 config SAMA5_EBICS0_NAND
 	bool "NAND Flash"
+	select MTD
+	select MTD_NAND
 
 endchoice # CS0 Memory Type
+
+if SAMA5_EBICS0_NAND && MTD_NAND_BLOCKCHECK && MTD_NAND_HWECC
+	config SAMA5_EBICS0_HWECC
+	bool "NAND H/W ECC support"
+	default n
+	---help---
+		Enable hardware assisted support for ECC calculations
+
+if SAMA5_EBICS0_HWECC
+choice
+	prompt "H/W ECC method"
+	default SAMA5_EBICS0_PMECC
+
+config SAMA5_EBICS0_PMECC
+	bool "PMECC"
+
+config SAMA5_EBICS0_HSIAO
+	bool "HSIAO ECC"
+
+endchoice # H/W ECC method
+endif # SAMA5_EBICS0_HWECC
+endif # SAMA5_EBICS0_NAND && MTD_NAND_BLOCKCHECK && MTD_NAND_HWECC
 endif # SAMA5_EBICS0
 
 config SAMA5_EBICS1
@@ -3082,8 +3110,32 @@ config SAMA5_EBICS1_NOR
 
 config SAMA5_EBICS1_NAND
 	bool "NAND Flash"
+	select MTD
+	select MTD_NAND
 
 endchoice # CS1 Memory Type
+
+if SAMA5_EBICS1_NAND && MTD_NAND_BLOCKCHECK && MTD_NAND_HWECC
+	config SAMA5_EBICS1_HWECC
+	bool "NAND H/W ECC support"
+	default n
+	---help---
+		Enable hardware assisted support for ECC calculations
+
+if SAMA5_EBICS1_HWECC
+choice
+	prompt "H/W ECC method"
+	default SAMA5_EBICS1_PMECC
+
+config SAMA5_EBICS1_PMECC
+	bool "PMECC"
+
+config SAMA5_EBICS1_HSIAO
+	bool "HSIAO ECC"
+
+endchoice # H/W ECC method
+endif # SAMA5_EBICS1_HWECC
+endif # SAMA5_EBICS1_NAND && MTD_NAND_BLOCKCHECK && MTD_NAND_HWECC
 endif # SAMA5_EBICS1
 
 config SAMA5_EBICS2
@@ -3131,8 +3183,32 @@ config SAMA5_EBICS2_NOR
 
 config SAMA5_EBICS2_NAND
 	bool "NAND Flash"
+	select MTD
+	select MTD_NAND
 
 endchoice # CS2 Memory Type
+
+if SAMA5_EBICS2_NAND && MTD_NAND_BLOCKCHECK && MTD_NAND_HWECC
+	config SAMA5_EBICS2_HWECC
+	bool "NAND H/W ECC support"
+	default n
+	---help---
+		Enable hardware assisted support for ECC calculations
+
+if SAMA5_EBICS2_HWECC
+choice
+	prompt "H/W ECC method"
+	default SAMA5_EBICS2_PMECC
+
+config SAMA5_EBICS2_PMECC
+	bool "PMECC"
+
+config SAMA5_EBICS2_HSIAO
+	bool "HSIAO ECC"
+
+endchoice # H/W ECC method
+endif # SAMA5_EBICS2_HWECC
+endif # SAMA5_EBICS2_NAND && MTD_NAND_BLOCKCHECK && MTD_NAND_HWECC
 endif # SAMA5_EBICS2
 
 config SAMA5_EBICS3
@@ -3180,9 +3256,56 @@ config SAMA5_EBICS3_NOR
 
 config SAMA5_EBICS3_NAND
 	bool "NAND Flash"
+	select MTD
+	select MTD_NAND
 
 endchoice # CS3 Memory Type
+
+if SAMA5_EBICS3_NAND && MTD_NAND_BLOCKCHECK && MTD_NAND_HWECC
+	config SAMA5_EBICS3_HWECC
+	bool "NAND H/W ECC support"
+	default n
+	---help---
+		Enable hardware assisted support for ECC calculations
+
+if SAMA5_EBICS3_HWECC
+choice
+	prompt "H/W ECC method"
+	default SAMA5_EBICS3_PMECC
+
+config SAMA5_EBICS3_PMECC
+	bool "PMECC"
+
+config SAMA5_EBICS3_HSIAO
+	bool "HSIAO ECC"
+
+endchoice # H/W ECC method
+endif # SAMA5_EBICS3_HWECC
+endif # SAMA5_EBICS3_NAND && MTD_NAND_BLOCKCHECK && MTD_NAND_HWECC
 endif # SAMA5_EBICS3
+
+if SAMA5_EBICS0_NAND || SAMA5_EBICS1_NAND || SAMA5_EBICS2_NAND || SAMA5_EBICS3_NAND
+
+config SAMA5_NAND_READYBUSY
+	bool "NAND Ready/Busy"
+	default n
+	---help---
+		Board logic supports and interface to detect NAND Busy/Ready signal.
+		If defined, the board must provide:
+
+			bool board_nand_busy(int cs);
+
+config SAMA5_NAND_CE
+	bool "NAND Chip Enable"
+	default n
+	---help---
+		Board logic supports and interface to control the NAND Chip Enable signal.
+		If defined, the board must provide:
+
+			void board_nand_ce(int cs, bool enable);
+
+endif # SAMA5_EBICS0_NAND
+
 endmenu # External Memory Configuration
 
 choice

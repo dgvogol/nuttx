@@ -1,5 +1,5 @@
 /****************************************************************************
- * drivers/child/skeleton.c
+ * drivers/mtd/mtd_partition.c
  *
  *   Copyright (C) 2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
@@ -46,7 +46,7 @@
 #include <assert.h>
 #include <debug.h>
 
-#include <nuttx/mtd.h>
+#include <nuttx/mtd/mtd.h>
 #include <nuttx/kmalloc.h>
 #include <nuttx/fs/ioctl.h>
 
