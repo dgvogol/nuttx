@@ -34,6 +34,7 @@
 ############################################################################
 
 -include $(TOPDIR)/Make.defs
+DELIM ?= $(strip /)
 include $(APPDIR)$(DELIM)Make.defs
 
 SPAWN_DIR = $(APPDIR)$(DELIM)examples$(DELIM)posix_spawn

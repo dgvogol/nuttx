@@ -35,6 +35,7 @@
 
 -include $(TOPDIR)/.config
 -include $(TOPDIR)/Make.defs
+DELIM ?= $(strip /)
 include $(APPDIR)$(DELIM)Make.defs
 
 # Platform-specific Appliction Support
