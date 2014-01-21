@@ -44,6 +44,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <stdio.h>
 #include <string.h>
 #include <ctype.h>
 #include <errno.h>
@@ -356,6 +357,9 @@ int vsscanf(FAR const char *buf, FAR const char *fmt, va_list ap)
 
           else if (strchr("dobxu", *fmt))
             {
+              FAR long *plong = NULL;
+              FAR int  *pint  = NULL;
+
               lvdbg("vsscanf: Performing integer conversion\n");
 
               /* Get a pointer to the integer value.  We need to do this even
@@ -363,8 +367,6 @@ int vsscanf(FAR const char *buf, FAR const char *fmt, va_list ap)
                * update the 'ap' variable.
                */
 
-              FAR long *plong = NULL;
-              FAR int  *pint  = NULL;
               if (!noassign)
                 {
                   /* We have to check whether we need to return a long or an
@@ -445,7 +447,7 @@ int vsscanf(FAR const char *buf, FAR const char *fmt, va_list ap)
                       long  tmplong;
 
                       errsave = errno;
-                      errno   = 0;
+                      set_errno(0);
                       tmplong = strtol(tmp, &endptr, base);
 
                       /* Number can't be converted */
@@ -455,7 +457,7 @@ int vsscanf(FAR const char *buf, FAR const char *fmt, va_list ap)
                           return count;
                         }
 
-                      errno = errsave;
+                      set_errno(errsave);
 
                       /* We have to check whether we need to return a long
                        * or an int.
@@ -481,6 +483,11 @@ int vsscanf(FAR const char *buf, FAR const char *fmt, va_list ap)
 
           else if (*fmt == 'f')
             {
+#ifdef CONFIG_HAVE_DOUBLE
+              FAR double_t *pd = NULL;
+#endif
+              FAR float    *pf = NULL;
+
               lvdbg("vsscanf: Performing floating point conversion\n");
 
               /* Get a pointer to the double value.  We need to do this even
@@ -488,10 +495,6 @@ int vsscanf(FAR const char *buf, FAR const char *fmt, va_list ap)
                * update the 'ap' variable.
                */
 
-#ifdef CONFIG_HAVE_DOUBLE
-              FAR double_t *pd = NULL;
-#endif
-              FAR float    *pf = NULL;
               if (!noassign)
                 {
                   /* We have to check whether we need to return a float or a
@@ -554,7 +557,7 @@ int vsscanf(FAR const char *buf, FAR const char *fmt, va_list ap)
                       double_t  dvalue;
 
                       errsave = errno;
-                      errno   = 0;
+                      set_errno(0);
                       dvalue  = strtod(tmp, &endptr);
 
                       /* Number can't be converted */
@@ -564,7 +567,7 @@ int vsscanf(FAR const char *buf, FAR const char *fmt, va_list ap)
                           return count;
                         }
 
-                      errno = errsave;
+                      set_errno(errsave);
 
                       /* We have to check whether we need to return a float
                        * or a double.

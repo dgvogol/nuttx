@@ -12,7 +12,7 @@
       <h1><big><font color="#3c34ec">
         <i>NX Graphics Subsystem</i>
       </font></big></h1>
-      <p>Last Updated: May 7, 2012</p>
+      <p>Last Updated: December 28, 2013</p>
     </td>
   </tr>
 </table>
@@ -282,7 +282,7 @@
     <ul>
       <li>
         Any device with random accesss video memory using the NuttX framebuffer driver interface
-        (see <code>include/nuttx/fb.h</code>).
+        (see <code>include/nuttx/video/fb.h</code>).
       </li>
       <li>
         Any LCD-like device than can accept raster line <i>runs</i> through a parallel or serial interface
@@ -356,7 +356,7 @@
 
 <p>
   <sup>1</sup><small>NXMU and NXSU are interchangeable other than (1) certain start-up
-  and intialization APIs (as described below), and (2) timing.  With NXSU, NX APIs
+  and initializeation APIs (as described below), and (2) timing.  With NXSU, NX APIs
   execute immediately; with NXMU, NX APIs defer and serialize the operations and, hence,
   introduce different timing and potential race conditions that you would not experience
   with NXSU.</small>
@@ -3144,9 +3144,20 @@ int nxf_convert_32bpp(FAR uint32_t *dest, uint16_t height,
   </tr>
 </table>
 
+<p>
+  The graphics capability consist both of components internal to the RTOS and of user-callable interfaces.
+  In the NuttX kernel mode build there are some components of the graphics subsystem are callable in user mode and other components that are internal to the RTOS.
+  The directory <code>nuttx/graphics</code> contains only those components that are internal to the RTOS.
+
+  User callable functions must be part of a library that can be linked against user applications.
+  This user callable interfaces are provided in sub-directories under <code>nuttx/libnx</code>.
+<p>
 <ul>
   <dl>
-    <dt><code>graphics/nxglib</code>
+    <dt><code>libnx/nx</code>
+      <dd>Common callable interfaces that are, logically, part of both nxmu and nxsu.
+
+    <dt><code>graphics/nxglib</code> and <code>libnx/nxglib</code>
       <dd>The NuttX tiny graphics library.
       The directory contains generic utilities support operations on primitive graphics objects
       and logic to rasterize directly into a framebuffer or through an LCD driver interface.
@@ -3159,7 +3170,7 @@ int nxf_convert_32bpp(FAR uint32_t *dest, uint16_t height,
       It contains most of the important window management logic:  clipping, window controls,
       window drawing, etc.
 
-    <dt><code>graphics/nxsu</code>
+    <dt><code>graphics/nxsu</code><sup>1</sup>
       <dd>This is the NX single user <i>front end</i>.
       When combined with the generic <i>back-end</i> (<code>nxbe</code>), it implements a
       single threaded, single user windowing system.
@@ -3168,7 +3179,7 @@ int nxf_convert_32bpp(FAR uint32_t *dest, uint16_t height,
       The single user front-end is selected when <code>CONFIG_NX_MULTIUSER</code> is not
       defined in the NuttX configuration file.
 
-    <dt><code>graphics/nxsu</code>
+    <dt><code>graphics/nxmu</code> and <code>libnx/nxmu</code>
       <dd>This is the NX multi user <i>front end</i>.
       When combined with the generic <i>back-end</i> (<code>nxbe</code>), it implements a
       multi-threaded, multi-user windowing system.
@@ -3180,24 +3191,27 @@ int nxf_convert_32bpp(FAR uint32_t *dest, uint16_t height,
       The multi-user front-end is selected when <code>CONFIG_NX_MULTIUSER</code> is defined
       in the NuttX configuration file.
 
-    <dt><code>graphics/nxfonts</code>
+    <dt><code>libnx/nxfonts</code>
       <dd>This is where the NXFONTS implementation resides.
       This is a relatively low-level set of charset set/glyph management APIs.
       See <code>include/nuttx/nx/nxfonts.h</code>.
 
-    <dt><code>graphics/nxtk</code>
+    <dt><code>libnx/nxtk</code>
       <dd>This is where the NXTOOLKIT implementation resides.
       This toolkit is built on top of NX and works with either the single-user or multi-user NX version.
       See <code>include/nuttx/nx/nxtk.h</code>.
 
     <dt><code>nuttx/../nxwidgets</code>
-      <dd>The <a href="NxWidgets.html">NxWidgets</a> code is provided as a separate package located outside of the
-  NuttX source tree (probably at this location).
+      <dd>The <a href="NxWidgets.html">NxWidgets</a> code is provided as a separate package located outside of the NuttX source tree (probably at this location).
 
     <dt><code>graphics/nxconsole</code>
       <dd>The NxConsole driver is built on top of NX and works with either the single-user or multi-user NX version.
       See <code>include/nuttx/nx/nxconsole.h</code>.
   </dl>
+  <p><small>
+    <sup>1<up>There is no nxsu sub-directory in nuttx/libnx.
+    That is because this separation of interfaces is only required in the kernel build mode and only the multi-user interfaces can be used with the kernel build.
+  </small></p>
 </ul>
 
 <table width ="100%">
@@ -3235,7 +3249,7 @@ int nxf_convert_32bpp(FAR uint32_t *dest, uint16_t height,
       <dd>If a pixel depth of less than 8-bits is used, then NX needs
       to know if the pixels pack from the MS to LS or from LS to MS
     <dt><code>CONFIG_NX_LCDDRIVER</code>:
-      <dd>By default, NX builds to use a framebuffer driver (see <code>include/nuttx/fb.h</code>).
+      <dd>By default, NX builds to use a framebuffer driver (see <code>include/nuttx/video/fb.h</code>).
       If this option is defined, NX will build to use an LCD driver (see <code>include/nuttx/lcd/lcd.h</code>).
   </li>
   </dl>

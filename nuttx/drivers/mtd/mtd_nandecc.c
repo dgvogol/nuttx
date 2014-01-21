@@ -6,7 +6,7 @@
  *
  * This logic was based largely on Atmel sample code with modifications for
  * better integration with NuttX.  The Atmel sample code has a BSD
- * compatibile license that requires this copyright notice:
+ * compatible license that requires this copyright notice:
  *
  *   Copyright (c) 2011, 2012, Atmel Corporation
  *
@@ -97,6 +97,8 @@ int nandecc_readpage(FAR struct nand_dev_s *nand, off_t block,
   unsigned int sparesize;
   int ret;
 
+  fvdbg("block=%d page=%d data=%p spare=%d\n", (int)block, page, data, spare);
+
   /* Get convenience pointers */
 
   DEBUGASSERT(nand && nand->raw);
@@ -120,7 +122,7 @@ int nandecc_readpage(FAR struct nand_dev_s *nand, off_t block,
 
   /* Start by reading the spare data */
 
-  ret = NAND_READPAGE(raw, block, page, 0, spare);
+  ret = NAND_RAWREAD(raw, block, page, 0, spare);
   if (ret < 0)
     {
       fdbg("ERROR: Failed to read page:d\n", ret);
@@ -129,7 +131,7 @@ int nandecc_readpage(FAR struct nand_dev_s *nand, off_t block,
 
   /* Then reading the data */
 
-  ret = NAND_READPAGE(nand->raw, block, page, data, 0);
+  ret = NAND_RAWREAD(nand->raw, block, page, data, 0);
   if (ret < 0)
     {
       fdbg("ERROR: Failed to read page:d\n", ret);
@@ -146,7 +148,7 @@ int nandecc_readpage(FAR struct nand_dev_s *nand, off_t block,
   ret = hamming_verify256x(data, pagesize, raw->ecc);
   if (ret && (ret != HAMMING_ERROR_SINGLEBIT))
     {
-      fdbg("ERROR: Blockd paged Unrecoverable error:d\n",
+      fdbg("ERROR: Block=%d page=%d Unrecoverable error: %d\n",
            block, page, ret);
       return -EIO;
     }
@@ -186,6 +188,8 @@ int nandecc_writepage(FAR struct nand_dev_s *nand, off_t block,
   unsigned int pagesize;
   unsigned int sparesize;
   int ret;
+
+  fvdbg("block=%d page=%d data=%p spare=%d\n", (int)block, page, data, spare);
 
   /* Get convenience pointers */
 
@@ -228,7 +232,7 @@ int nandecc_writepage(FAR struct nand_dev_s *nand, off_t block,
 
   /* Perform page write operation */
 
-  ret = NAND_WRITEPAGE(nand->raw, block, page, data, spare);
+  ret = NAND_RAWWRITE(nand->raw, block, page, data, spare);
   if (ret < 0)
     {
       fdbg("ERROR: Failed to write page:d\n", ret);

@@ -1,5 +1,5 @@
 /****************************************************************************
- * configs/sam4l-xplained/src/sam_buttons.c
+ * configs/sama5d3x-ek/src/sam_buttons.c
  *
  *   Copyright (C) 2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
@@ -102,16 +102,16 @@ void up_buttoninit(void)
   (void)sam_configpio(PIO_USER1);
 }
 
-/************************************************************************************
+/****************************************************************************
  * Name: up_buttons
  *
  * Description:
- *   After up_buttoninit() has been called, up_buttons() may be called to collect
- *   the state of all buttons.  up_buttons() returns an 8-bit bit set with each bit
- *   associated with a button.  See the BUTTON* definitions above for the meaning of
- *   each bit in the returned value.
+ *   After up_buttoninit() has been called, up_buttons() may be called to
+ *   collect the state of all buttons.  up_buttons() returns an 8-bit bit set
+ *   with each bit associated with a button.  See the BUTTON* definitions
+ *   above for the meaning of each bit in the returned value.
  *
- ************************************************************************************/
+ ****************************************************************************/
 
 uint8_t up_buttons(void)
 {
@@ -129,8 +129,8 @@ uint8_t up_buttons(void)
  *
  * Configuration Notes:
  *   Configuration CONFIG_SAMA5_PIO_IRQ must be selected to enable the
- *   overall PIO IRQ feature and CONFIG_SAMA5_PIOE_IRQ must be enabled to select
- *   PIOs to support interrupts on PIOE.
+ *   overall PIO IRQ feature and CONFIG_SAMA5_PIOE_IRQ must be enabled to
+ *   select PIOs to support interrupts on PIOE.
  *
  ****************************************************************************/
 

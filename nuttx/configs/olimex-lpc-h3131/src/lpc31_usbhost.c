@@ -56,7 +56,7 @@
 #include "lpc31_internal.h"
 #include "lpc_h3131.h"
 
-#if defined(CONFIG_LPC31_USBOTG) || defined(CONFIG_USBHOST)
+#ifdef HAVE_USBHOST
 
 /************************************************************************************
  * Pre-processor Definitions
@@ -68,10 +68,6 @@
 
 #ifndef CONFIG_USBHOST_STACKSIZE
 #  define CONFIG_USBHOST_STACKSIZE 1024
-#endif
-
-#ifdef HAVE_USBDEV
-#  undef CONFIG_LPC31_USBOTG_RHPORT1
 #endif
 
 /************************************************************************************
@@ -158,10 +154,15 @@ static int ehci_waiter(int argc, char *argv[])
 
 void weak_function lpc31_usbhost_bootinitialize(void)
 {
-  /* Configure pin to drive VBUS power */
-#warning Missing logic
+  /* Configure output pin to drive VBUS power (initial state: power off) */
 
-  /* Configure pin to detect overrcurrent errors */
+  gpio_outputhigh(LPC31_IOCONFIG_GPIO, GPIO_NOTG_PWR_E);
+
+  /* Configure input pin to detect overrcurrent errors */
+
+  gpio_configinput(LPC31_IOCONFIG_GPIO, GPIO_NOTG_OVRCR);
+
+  /* Configure to receive interrupts on the overrcurrent input pin */
 #warning Missing logic
 }
 
@@ -234,8 +235,9 @@ int lpc31_usbhost_initialize(void)
  *   each platform that implements the OHCI or EHCI host interface
  *
  * Input Parameters:
- *   rhport - Selects root hub port to be powered host interface.  See SAM_RHPORT_*
- *            definitions above.
+ *   rhport - Selects root hub port to be powered host interface. Since the LPC31
+ *     has only a downstream port, zero is the only possible value for this
+ *     parameter.
  *   enable - true: enable VBUS power; false: disable VBUS power
  *
  * Returned Value:
@@ -256,12 +258,14 @@ void lpc31_usbhost_vbusdrive(int rhport, bool enable)
       if (enable)
         {
           /* Enable the Power Switch by driving the enable pin low */
-#warning Missing logic
+
+          gpio_outputlow(LPC31_IOCONFIG_GPIO, GPIO_NOTG_PWR_E);
         }
       else
         {
           /* Disable the Power Switch by driving the enable pin high */
-#warning Missing logic
+
+          gpio_outputhigh(LPC31_IOCONFIG_GPIO, GPIO_NOTG_PWR_E);
         }
     }
 }
@@ -308,4 +312,4 @@ xcpt_t lpc31_setup_overcurrent(xcpt_t handler)
 }
 #endif /* 0 */
 
-#endif /* CONFIG_LPC31_USBOTG || CONFIG_USBHOST */
+#endif /* HAVE_USBHOST */

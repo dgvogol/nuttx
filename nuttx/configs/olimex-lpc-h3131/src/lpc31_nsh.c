@@ -44,41 +44,29 @@
 #include <debug.h>
 #include <errno.h>
 
-#ifdef CONFIG_LPC31_MCI
-#  include <nuttx/sdio.h>
-#  include <nuttx/mmcsd.h>
+#ifdef CONFIG_SYSTEM_USBMONITOR
+#  include <apps/usbmonitor.h>
 #endif
 
 #include "lpc31_internal.h"
 
+#include "lpc_h3131.h"
+
 /****************************************************************************
  * Pre-Processor Definitions
  ****************************************************************************/
-
 /* Configuration ************************************************************/
 
 /* PORT and SLOT number probably depend on the board configuration */
 
-#define NSH_HAVEMMCSD  1
-
-#if defined(CONFIG_NSH_MMCSDSLOTNO) && CONFIG_NSH_MMCSDSLOTNO != 0
-#  error "Only one MMC/SD slot"
-#  undef CONFIG_NSH_MMCSDSLOTNO
-#endif
-#ifndef CONFIG_NSH_MMCSDSLOTNO
-#  define CONFIG_NSH_MMCSDSLOTNO 0
-#endif
-
-/* Can't support MMC/SD features if mountpoints are disabled or if SDIO support
- * is not enabled.
- */
-
-#if defined(CONFIG_DISABLE_MOUNTPOINT) || !defined(CONFIG_LPC31_MCI)
-#  undef NSH_HAVEMMCSD
-#endif
-
-#ifndef CONFIG_NSH_MMCSDMINOR
-#  define CONFIG_NSH_MMCSDMINOR 0
+#ifdef HAVE_MMCSD
+#  if defined(CONFIG_NSH_MMCSDSLOTNO) && CONFIG_NSH_MMCSDSLOTNO != 0
+#    error "Only one MMC/SD slot"
+#    undef CONFIG_NSH_MMCSDSLOTNO
+#  endif
+#  ifndef CONFIG_NSH_MMCSDSLOTNO
+#    define CONFIG_NSH_MMCSDSLOTNO 0
+#  endif
 #endif
 
 /* Debug ********************************************************************/
@@ -111,40 +99,47 @@
 
 int nsh_archinitialize(void)
 {
-#ifdef NSH_HAVEMMCSD
-  FAR struct sdio_dev_s *sdio;
+#if defined(HAVE_MMCSD) || defined(HAVE_USBHOST)
   int ret;
+#endif
 
-  /* First, get an instance of the SDIO interface */
+#ifdef HAVE_MMCSD
+  /* Create the SDIO-based MMC/SD device */
 
-  message("nsh_archinitialize: Initializing SDIO slot %d\n",
-          CONFIG_NSH_MMCSDSLOTNO);
-  sdio = sdio_initialize(CONFIG_NSH_MMCSDSLOTNO);
+  message("nsh_archinitialize: Create the MMC/SD device\n");
+  ret = lpc31_mmcsd_initialize(CONFIG_NSH_MMCSDSLOTNO);
   if (!sdio)
     {
       message("nsh_archinitialize: Failed to initialize SDIO slot %d\n",
-              CONFIG_NSH_MMCSDSLOTNO);
+              CONFIG_NSH_MMCSDSLOTNO, CONFIG_NSH_MMCSDMINOR);
       return -ENODEV;
     }
+#endif
 
-  /* Now bind the SPI interface to the MMC/SD driver */
-
-  message("nsh_archinitialize: Bind SDIO to the MMC/SD driver, minor=%d\n",
-          CONFIG_NSH_MMCSDMINOR);
-  ret = mmcsd_slotinitialize(CONFIG_NSH_MMCSDMINOR, sdio);
-  if (ret != OK)
-    {
-      message("nsh_archinitialize: Failed to bind SDIO to the MMC/SD driver: %d\n", ret);
-      return ret;
-    }
-  message("nsh_archinitialize: Successfully bound SDIO to the MMC/SD driver\n");
-  
-  /* Then let's guess and say that there is a card in the slot.  I need to check to
-   * see if the LPC-H3131 board supports a GPIO to detect if there is a card in
-   * the slot.
+#ifdef HAVE_USBHOST
+  /* Initialize USB host operation.  lpc31_usbhost_initialize() starts a thread
+   * will monitor for USB connection and disconnection events.
    */
 
-   sdio_mediachange(sdio, true);
+  message("nsh_archinitialize: Start USB host services\n");
+  ret = lpc31_usbhost_initialize();
+  if (ret != OK)
+    {
+      message("ERROR: Failed to start USB host services: %d\n", ret);
+      return ret;
+    }
 #endif
+
+#ifdef HAVE_USBMONITOR
+  /* Start the USB Monitor */
+
+  message("nsh_archinitialize: Start the USB monitor\n");
+  ret = usbmonitor_start(0, NULL);
+  if (ret != OK)
+    {
+      message("nsh_archinitialize: Failed to start USB monitor: %d\n", ret);
+    }
+#endif
+
   return OK;
 }

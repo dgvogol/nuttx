@@ -2502,14 +2502,14 @@ static inline void lpc17_ep0init(struct lpc17_usbhost_s *priv)
  *******************************************************************************/
 
 /*******************************************************************************
- * Name: usbhost_initialize
+ * Name: lpc17_usbhost_initialize
  *
  * Description:
  *   Initialize USB host device controller hardware.
  *
  * Input Parameters:
  *   controller -- If the device supports more than USB host controller, then
- *     this identifies which controller is being intialized.  Normally, this
+ *     this identifies which controller is being initialized.  Normally, this
  *     is just zero.
  *
  * Returned Value:
@@ -2526,7 +2526,7 @@ static inline void lpc17_ep0init(struct lpc17_usbhost_s *priv)
  *
  *******************************************************************************/
 
-FAR struct usbhost_connection_s *usbhost_initialize(int controller)
+FAR struct usbhost_connection_s *lpc17_usbhost_initialize(int controller)
 {
   struct lpc17_usbhost_s *priv = &g_usbhost;
   uint32_t regval;

@@ -3,6 +3,11 @@ README
 
   This README file discusses the port of NuttX to the Olimex LPC-H3131 board.
 
+  NOTE:  This is a minimal port to the Olimex LPC-H3131.  According to Olimex
+  documentation, the LPC-H3131 is similar in design to the Embedded Artists
+  EA3131.  As a consequence, it should be possible to leverage additional
+  functionality from configs/ea3131 without too much difficulty.
+
 Contents
 ========
 
@@ -564,3 +569,309 @@ Configurations
   nsh:
     Configures the NuttShell (nsh) located at examples/nsh.  The
     Configuration enables only the serial NSH interface.
+
+    General Configuration.  These are easily change by modifying the NuttX
+    configuration:
+
+      - Console on UART -> UART-to-USB converter
+      - Platform: Windows with Cygwin
+      - Toolchain:  CodeSourcery for Windows
+
+    NOTES:
+    1. Built-in applications are not supported by default.  To enable NSH
+       built-in applications:
+
+       Binary
+         CONFIG_BUILTIN=y                      : Support built-in applications
+
+       Application Configuration -> NSH Library
+         CONFIG_NSH_BUILTIN_APPS=y             : Enable built-in applications
+
+    2. SDRAM support is not enabled by default.  SDRAM support can be enabled
+       by adding the following to your NuttX configuration file:
+
+       [NOTE: There is still something wrong with the SDRAM setup.  At present
+        it hangs on the first access from SDRAM during configuration.]
+
+       System Type->LPC31xx Peripheral Support
+         CONFIG_LPC31_EXTDRAM=y                : Enable external DRAM support
+         CONFIG_LPC31_EXTDRAMSIZE=33554432     : 256Mbit -> 32Mbyte
+         CONFIG_LPC31_SDRAM_16BIT=y            : Organized 16Mbit x 16 bits wide
+
+       Now that you have SDRAM enabled, what are you going to do with it?  One
+       thing you can is add it to the heap
+
+       System Type->Heap Configuration
+         CONFIG_LPC31_EXTDRAMHEAP=y            : Add the SDRAM to the heap
+
+       Memory Management
+         CONFIG_MM_REGIONS=2                   : Two memory regions: ISRAM and SDRAM
+
+       Another thing you could do is to enable the RAM test built-in
+       application:
+
+    3. You can enable the NuttX RAM test that may be used to verify the
+       external SDAM.  To do this, keep the SDRAM out of the heap so that
+       it can be tested without crashing programs using the memory.
+
+       First enable built-in applications as described above, then make
+       the following additional modifications to the NuttX configuration:
+
+       System Type->Heap Configuration
+         CONFIG_LPC31_EXTDRAMHEAP=n            : Don't add the SDRAM to the heap
+
+       Memory Management
+         CONFIG_MM_REGIONS=1                   : One memory regions:  ISRAM
+
+       Then enable the RAM test built-in application:
+
+       Application Configuration->System NSH Add-Ons->Ram Test
+         CONFIG_SYSTEM_RAMTEST=y
+
+       In this configuration, the SDRAM is not added to heap and so is not
+       excessible to the applications.  So the RAM test can be freely
+       executed against the SRAM memory beginning at address 0x2000:0000
+       (DDR CS):
+
+       nsh> ramtest -h
+       Usage: ramtest [-w|h|b] <hex-address> <decimal-size>
+
+       Where:
+         <hex-address> starting address of the test.
+         <decimal-size> number of memory locations (in bytes).
+         -w Sets the width of a memory location to 32-bits.
+         -h Sets the width of a memory location to 16-bits (default).
+         -b Sets the width of a memory location to 8-bits.
+
+       To test the entire external 256MB SRAM:
+
+       nsh> ramtest -w 30000000 33554432
+       RAMTest: Marching ones: 30000000 33554432
+       RAMTest: Marching zeroes: 30000000 33554432
+       RAMTest: Pattern test: 30000000 33554432 55555555 aaaaaaaa
+       RAMTest: Pattern test: 30000000 33554432 66666666 99999999
+       RAMTest: Pattern test: 30000000 33554432 33333333 cccccccc
+       RAMTest: Address-in-address test: 30000000 33554432
+
+    4. This configuration has been used to test USB host functionaly.  USB
+       host is *not* enabled by default.  If you will to enable USB host
+       support in the NSH configuration, please modify the NuttX
+       configuration as follows:
+
+       a) Basic USB Host support
+
+          Drivers -> USB Host Driver Support
+            CONFIG_USBHOST=y              : General USB host support
+            CONFIG_USBHOST_INT_DISABLE=y  : Not needed (unless you use the keyboard)
+            CONFIG_USBHOST_ISOC_DISABLE=y : Not needed (or supported)
+
+          System Type -> Peripherals
+            CONFIG_LPC31_USBOTG=y         : Enable the USB OTG peripheral
+
+          System Type -> USB host configuration
+            CONFIG_LPC31_EHCI_BUFSIZE=128
+            CONFIG_LPC31_EHCI_PREALLOCATE=y
+
+          Library Routines
+            CONFIG_SCHED_WORKQUEUE=y      : Work queue support is needed
+            CONFIG_SCHED_WORKSTACKSIZE=1536
+
+       b. USB Mass Storage Class.  With this class enabled, you can support
+          connection of USB FLASH storage drives.  Support for the USB
+          mass storage class is enabled like this:
+
+          Drivers -> USB Host Driver Support
+            CONFIG_USBHOST_MSC=y          : Mass storage class support
+
+          The MSC class will work like this.  When you first start NSH, you
+          can look at the available devices like this:
+
+            NuttShell (NSH) NuttX-6.31
+            nsh> ls -l /dev
+            /dev:
+             crw-rw-rw-       0 console
+             crw-rw-rw-       0 null
+             crw-rw-rw-       0 ttyS0
+
+          The crw-rw-rw- indicates a readable, write-able character device.
+
+            nsh> ls -l /dev
+            /dev:
+             crw-rw-rw-       0 console
+             crw-rw-rw-       0 null
+             brw-rw-rw-       0 sda
+             crw-rw-rw-       0 ttyS0
+
+          The brw-rw-rw- indicates a readable, write-able block device.
+          This block device can then be mounted like this:
+
+            nsh> mount -t vfat /dev/sda /mnt/flash
+
+          The USB FLASH drive contents are then visible under /mnt/flash and
+          can be operated on with normal file system commands like:
+
+            nsh> mount -t vfat /dev/sda /mnt/flash
+            nsh> cat /mnt/flash/filec.c
+            etc.
+
+          It is recommended that the drive by unmounted BEFORE it is
+          removed.  That is not always possible so if the USB FLASH is
+          removed BEFORE the drive is unmounted, the device at /dev/sda will
+          persist in an unusable stack until it is unmounted with the
+          following command (NOTE:  If the FLASH drive is re-inserted in
+          this state, it will appear as /dev/sdb):
+
+            nsh> umount /mnt/flash
+
+       c. HID Keyboard support.  The following support will enable support
+          for certain keyboard devices (only the so-called "boot" keyboard
+          class is supported):
+
+          Drivers -> USB Host Driver Support
+            CONFIG_USBHOST_HIDKBD=y       : HID keyboard class support
+
+          Drivers -> USB Host Driver Support
+            CONFIG_USBHOST_INT_DISABLE=n  : Interrupt endpoint support needed
+
+          In this case, when the HID keyboard is installed, you see a new
+          character device called /dev/kbda.
+
+          There is a HID keyboard test example that can be enabled with the
+          following settings.  NOTE:  In this case, NSH is disabled because
+          the HID keyboard test is a standalone test.
+
+          This selects the HIDKBD example:
+
+          Application Configuration -> Examples
+            CONFIG_EXAMPLES_HIDKBD=y
+            CONFIG_EXAMPLES_HIDKBD_DEVNAME="/dev/kbda"
+
+          RTOS Features
+            CONFIG_USER_ENTRYPOINT="hidkbd_main"
+
+          These settings disable NSH:
+
+          Application Configuration -> Examples
+            CONFIG_EXAMPLES_NSH=n
+
+          Application Configuration -> NSH Library
+            CONFIG_NSH_LIBRARY=y
+
+          Using the HID Keyboard example:  Anything typed on the keyboard
+          should be echoed on the serial console.  Here is some sample of
+          a session:
+
+          Initialization
+
+            hidkbd_main: Register class drivers
+            hidkbd_main: Initialize USB host keyboard driver
+            hidkbd_main: Start hidkbd_waiter
+            hidkbd_waiter: Running
+
+          The test example will periodically attempt to open /dev/kbda
+
+            Opening device /dev/kbda
+            Failed: 2
+            Opening device /dev/kbda
+            Failed: 2
+            etc.
+
+          The open will fail each time because there is no keyboard
+          attached.  When a USB keyboard is attached, the open of /dev/kbda
+          will succeed and the test will begin echoing data to the serial
+          console:
+
+            hidkbd_waiter: connected
+            Opening device /dev/kbda
+            Device /dev/kbda opened
+
+          For example, this text was entered from the keyboard:
+
+            Now is the time for all good men to come to the aid of their party.
+
+          Then when the device is removed, the test will resume attempting
+          to open the driver until the next time it is connected
+
+            Closing device /dev/kbda: -1
+            Opening device /dev/kbda
+            Failed: 19
+            hidkbd_waiter: disconnected
+
+            Opening device /dev/kbda
+            Failed: 2
+            etc.
+
+       d. The USB monitor can also be enabled:
+
+         Drivers -> USB Host Driver Support
+           CONFIG_USBHOST_TRACE=y
+           CONFIG_USBHOST_TRACE_NRECORDS=128
+           CONFIG_USBHOST_TRACE_VERBOSE=y
+
+         Application Configuration -> System Add-Ons
+           CONFIG_SYSTEM_USBMONITOR=y
+           CONFIG_SYSTEM_USBMONITOR_INTERVAL=1
+
+       NOTE:  I have found that if you enable USB DEBUG and/or USB tracing,
+       the resulting image requires to much memory to execute out of
+       internal SRAM.  I was able to get the configurations to run out of
+       SRAM with debug/tracing enabled by carefully going through the
+       configuration and reducing stack sizes, disabling unused OS features,
+       disabling un-necessary NSH commands, etc.
+
+    5. Making the Configuration Smaller.  This configuration runs out of
+       internal SRAM.  If you enable many features, then your code image
+       may outgrow the available SRAM; even if the code can be loaded into
+       SRAM, it may still fail at runtime due to insufficient memory.
+
+       Since SDRAM is not currently working (see above) and NAND support
+       has not be integrated, the only really option is to put NSH "on a
+       diet" to reduct the size so that it will fit into memory.
+
+       Here are a few things you can do:
+
+       1. Try using smaller stack sizes,
+
+       2. Disable operating system features.  Here some that can go:
+
+          CONFIG_DISABLE_ENVIRON=y
+          CONFIG_DISABLE_MQUEUE=y
+          CONFIG_DISABLE_POSIX_TIMERS=y
+          CONFIG_DISABLE_PTHREAD=y
+          CONFIG_MQ_MAXMSGSIZE=0
+          CONFIG_NPTHREAD_KEYS=0
+          CONFIG_NUNGET_CHARS=0
+          CONFIG_PREALLOC_MQ_MSGS=0
+
+       3. Disable NSH commands.  I can life fine without these:
+
+          CONFIG_NSH_DISABLE_ADDROUTE=y
+          CONFIG_NSH_DISABLE_CD=y
+          CONFIG_NSH_DISABLE_CMP=y
+          CONFIG_NSH_DISABLE_CP=y
+          CONFIG_NSH_DISABLE_DD=y
+          CONFIG_NSH_DISABLE_DELROUTE=y
+          CONFIG_NSH_DISABLE_EXEC=y
+          CONFIG_NSH_DISABLE_EXIT=y
+          CONFIG_NSH_DISABLE_GET=y
+          CONFIG_NSH_DISABLE_HEXDUMP=y
+          CONFIG_NSH_DISABLE_IFCONFIG=y
+          CONFIG_NSH_DISABLE_LOSETUP=y
+          CONFIG_NSH_DISABLE_MB=y
+          CONFIG_NSH_DISABLE_MH=y
+          CONFIG_NSH_DISABLE_MKFIFO=y
+          CONFIG_NSH_DISABLE_MKRD=y
+          CONFIG_NSH_DISABLE_NSFMOUNT=y
+          CONFIG_NSH_DISABLE_PING=y
+          CONFIG_NSH_DISABLE_PUT=y
+          CONFIG_NSH_DISABLE_PWD=y
+          CONFIG_NSH_DISABLE_RM=y
+          CONFIG_NSH_DISABLE_RMDIR=y
+          CONFIG_NSH_DISABLE_SET=y
+          CONFIG_NSH_DISABLE_SH=y
+          CONFIG_NSH_DISABLE_SLEEP=y
+          CONFIG_NSH_DISABLE_TEST=y
+          CONFIG_NSH_DISABLE_UNSET=y
+          CONFIG_NSH_DISABLE_USLEEP=y
+          CONFIG_NSH_DISABLE_WGET=y
+          CONFIG_NSH_DISABLE_XD=y

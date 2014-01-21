@@ -94,7 +94,7 @@ void lpc31_boardinitialize(void)
     * into the build.
     */
 
-#if defined(CONFIG_USBDEV) && defined(CONFIG_LPC31_USBOTG)
+#ifdef HAVE_USBDEV
   if (lpc31_usbdev_initialize)
     {
       lpc31_usbdev_initialize();
@@ -107,16 +107,11 @@ void lpc31_boardinitialize(void)
    * selected.
    */
 
-#if defined(CONFIG_SAMA5_UHPHS) || defined(CONFIG_SAMA5_UDPHS)
-  if (lpc31_usbhost_bootinitialize)
-    {
-      lpc31_usbhost_bootinitialize();
-    }
+#ifdef HAVE_USBHOST
+  lpc31_usbhost_bootinitialize();
 #endif
 
-  /* Configure on-board LEDs if LED support has been selected. */
+  /* Configure on-board LEDs in all cases */
 
-#ifdef CONFIG_ARCH_LEDS
   up_ledinit();
-#endif
 }

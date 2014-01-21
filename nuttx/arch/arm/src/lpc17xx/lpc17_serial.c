@@ -906,7 +906,7 @@ __best_found:
 
 static int up_setup(struct uart_dev_s *dev)
 {
-#ifndef CONFIG_SUPPRESS_LPC17_UART_CONFIG
+#ifndef CONFIG_SUPPRESS_UART_CONFIG
   struct up_dev_s *priv = (struct up_dev_s*)dev->priv;
   uint16_t dl;
   uint32_t lcr;
