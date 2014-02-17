@@ -58,7 +58,7 @@
  * 1111 1111 1100 0000 0000
  * 9876 5432 1098 7654 3210
  * ---- ---- ---- ---- ----
- * .FFF UUDD IGWS SSSP PPPP
+ * CFFF UUDD IGWS SSSP PPPP
  */
 
 /* Alternate function number:
@@ -218,6 +218,23 @@
 #  define PINCONF_PIN_29              (29 << PINCONF_PIN_SHIFT)
 #  define PINCONF_PIN_30              (30 << PINCONF_PIN_SHIFT)
 #  define PINCONF_PIN_31              (31 << PINCONF_PIN_SHIFT)
+
+
+/* Clock pin indicator. Use SCU SFSCLK register instead of SFSP. For clock pins,
+ * the C bit must be set and the SSSS field is always zero
+ *
+ * 1111 1111 1100 0000 0000
+ * 9876 5432 1098 7654 3210
+ * ---- ---- ---- ---- ----
+ * C... .... .... .... ....
+ */
+#define PINCONF_CLKPIN                (1 << 19)
+#define PINCONF_IS_CLK(p)             (((p) & PINCONF_CLKPIN) != 0)
+#  define PINCONF_CLK0                (PINCONF_CLKPIN | PINCONF_PIN_0)
+#  define PINCONF_CLK1                (PINCONF_CLKPIN | PINCONF_PIN_1)
+#  define PINCONF_CLK2                (PINCONF_CLKPIN | PINCONF_PIN_2)
+#  define PINCONF_CLK3                (PINCONF_CLKPIN | PINCONF_PIN_3)
+#define PINCONF_CLKPIN_MASK           (3) /* only use 2 bits in the PPPPP field */
 
 /********************************************************************************************
  * Public Types

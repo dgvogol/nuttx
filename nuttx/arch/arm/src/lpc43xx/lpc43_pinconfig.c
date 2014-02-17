@@ -146,8 +146,15 @@ int lpc43_pin_config(uint32_t pinconf)
   /* Get the address of the pin configuration register and save the new
    * pin configuration.
    */
-
-  regaddr =  LPC43_SCU_SFSP(pinset, pin);
+  if (PINCONF_IS_CLK(pinconf))
+    {
+      pin &= PINCONF_CLKPIN_MASK;
+      regaddr = LPC43_SCU_SFSCLK(pin);
+    }
+  else
+    {
+      regaddr =  LPC43_SCU_SFSP(pinset, pin);
+    }
   putreg32(regval, regaddr);
 
   return OK;
